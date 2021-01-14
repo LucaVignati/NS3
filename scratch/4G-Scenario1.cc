@@ -68,12 +68,11 @@ main (int argc, char *argv[])
   uint16_t numberOfenbNodes = 1;
   uint16_t numberOfueNodes = 2;
   uint16_t numberOfBands = 1;
-  double simTime = 22; // in seconds
+  double simTime = 2; // in seconds
   uint32_t squareWidth = 1000;
   uint32_t radius = 500;
   uint32_t height = 5;
   double interPacketInterval = 1.0/1500.0;
-  int nPackets = (simTime - 20)/interPacketInterval;
   uint32_t packetSize = 280;
   uint16_t thrsLatency = 20*1000;
   std::string comment = "";
@@ -106,6 +105,11 @@ main (int argc, char *argv[])
                 "Total duration of the simulation [s])",
                 simTime);
   cmd.Parse(argc, argv);
+
+  double startTime = 0.1;
+  double endTime = startTime + simTime + 7;
+  double totalSimTime = endTime + 11;
+  int nPackets = simTime/interPacketInterval;
 
   char ues[10];
   sprintf(ues, "%d", numberOfueNodes); 
@@ -275,8 +279,8 @@ main (int argc, char *argv[])
   // Install and start applications on UEs and remote host
   UdpEchoServerHelper udpEchoServer(9);
   ApplicationContainer serverApps = udpEchoServer.Install (remoteHost);
-  serverApps.Start (Seconds (1.0));
-  serverApps.Stop (Seconds (simTime - 13));
+  serverApps.Start (Seconds (startTime));
+  serverApps.Stop (Seconds (endTime));
 
   int j;
   //uint64_t e2eLatVect[numberOfueNodes][nPackets];
@@ -295,8 +299,8 @@ main (int argc, char *argv[])
     Ptr<UdpServer> server = udpServer.GetServer();
     server->SetMaxLatency(thrsLatency);
     server->SetDataVectors(arrivalTimeVect, latVect);
-    ueServers.Start(Seconds(1.0));
-    ueServers.Stop(Seconds(simTime - 13));
+    ueServers.Start(Seconds(startTime));
+    ueServers.Stop(Seconds(endTime));
   }
 
   for(uint16_t u = 0; u < numberOfBands; u++) {
@@ -317,8 +321,8 @@ main (int argc, char *argv[])
         data[4] = 5;
         //std::cout << unsigned(data[0]) << "." << unsigned(data[1]) << "." << unsigned(data[2]) << "." << unsigned(data[3]) << ":" << unsigned(data[4]) << std::endl;
         udpClient.SetFill(clientApps.Get(0), data, 5, packetSize - 5);
-        clientApps.Start (Seconds ((rand() % 100 + 150)/100.0));
-        clientApps.Stop (Seconds (simTime - 14));
+        clientApps.Start (Seconds ((rand() % 100 + startTime*100)/100.0));
+        clientApps.Stop (Seconds (endTime));
       }
     }
   }
@@ -435,7 +439,7 @@ main (int argc, char *argv[])
     }
 
 
-  Simulator::Stop(Seconds(simTime));
+  Simulator::Stop(Seconds(totalSimTime));
   Simulator::Run();
 
   std::cout << "Run" << std::endl;
@@ -603,13 +607,13 @@ main (int argc, char *argv[])
   gnuplot2.AddDataset (dataset2);
 
   // Open the plot file.
-  std::ofstream plotFile2 (plotFileName.c_str());
+  //std::ofstream plotFile2 (plotFileName.c_str());
 
   // Write the plot file.
-  gnuplot2.GenerateOutput (plotFile2);
+  //gnuplot2.GenerateOutput (plotFile2);
 
   // Close the plot file.
-  plotFile2.close ();
+  //plotFile2.close ();
 
   Gnuplot2dDataset dataset3;
   for(uint32_t i = 0; i < e2ePktHist.GetNBins(); i++)  {
@@ -642,13 +646,13 @@ main (int argc, char *argv[])
   gnuplot3.AddDataset (dataset3);
 
   // Open the plot file.
-  std::ofstream plotFile3 (plotFileName.c_str());
+  //std::ofstream plotFile3 (plotFileName.c_str());
 
   // Write the plot file.
-  gnuplot3.GenerateOutput (plotFile3);
+  //gnuplot3.GenerateOutput (plotFile3);
 
   // Close the plot file.
-  plotFile3.close ();
+  //plotFile3.close ();
 
   Gnuplot2dDataset dataset4;
   for(uint32_t i = 0; i < cumulativeDlHist.GetNBins(); i++)  {
@@ -681,13 +685,13 @@ main (int argc, char *argv[])
   gnuplot4.AddDataset (dataset4);
 
   // Open the plot file.
-  std::ofstream plotFile4 (plotFileName.c_str());
+  //std::ofstream plotFile4 (plotFileName.c_str());
 
   // Write the plot file.
-  gnuplot4.GenerateOutput (plotFile4);
+  //gnuplot4.GenerateOutput (plotFile4);
 
   // Close the plot file.
-  plotFile4.close ();
+  //plotFile4.close ();
 
   Gnuplot2dDataset dataset5;
   double sum = 0;
@@ -722,13 +726,13 @@ main (int argc, char *argv[])
   gnuplot5.AddDataset (dataset5);
 
   // Open the plot file.
-  std::ofstream plotFile5 (plotFileName.c_str());
+  //std::ofstream plotFile5 (plotFileName.c_str());
 
   // Write the plot file.
-  gnuplot5.GenerateOutput (plotFile5);
+  //gnuplot5.GenerateOutput (plotFile5);
 
   // Close the plot file.
-  plotFile5.close ();
+  //plotFile5.close ();
 
 
   std::cout << "Delivered Packets: " << deliveredPckPerc << "%" << std::endl;
