@@ -110,6 +110,21 @@ UdpServer::GetReceived (void) const
 }
 
 void
+UdpServer::SetMaxLatency(uint16_t m)
+{
+  NS_LOG_FUNCTION(this);
+  m_maxLatency = m;
+}
+
+void
+UdpServer::SetDataVectors(uint64_t *v, uint64_t *k)
+{
+  NS_LOG_FUNCTION(this);
+  arrivalTime = v;
+  latency = k;
+}
+
+void
 UdpServer::DoDispose (void)
 {
   NS_LOG_FUNCTION (this);
@@ -169,6 +184,7 @@ UdpServer::HandleRead (Ptr<Socket> socket)
   Ptr<Packet> packet;
   Address from;
   Address localAddress;
+  uint8_t *data;
   while ((packet = socket->RecvFrom (from)))
     {
       socket->GetSockName (localAddress);
@@ -176,6 +192,17 @@ UdpServer::HandleRead (Ptr<Socket> socket)
       m_rxTraceWithAddresses (packet, from, localAddress);
       if (packet->GetSize () > 0)
         {
+          int pktSize = packet->GetSize();
+          data = new uint8_t[pktSize];
+          packet->CopyData(data, pktSize);
+          uint64_t sendTime;
+          uint32_t seqN;
+          memcpy(&sendTime, &data[5], sizeof(sendTime));
+          memcpy(&seqN, &data[5 + sizeof(sendTime)], sizeof(seqN));
+          int64_t delay = Simulator::Now().GetMicroSeconds() - sendTime;
+          latency[seqN] = delay;
+          arrivalTime[seqN] = Simulator::Now().GetMicroSeconds();
+          //std::cout << seqN << ": " << arrivalTime[seqN] << " - " << sendTime << " = " << delay << std::endl;
           SeqTsHeader seqTs;
           packet->RemoveHeader (seqTs);
           uint32_t currentSequenceNumber = seqTs.GetSeq ();
@@ -199,6 +226,8 @@ UdpServer::HandleRead (Ptr<Socket> socket)
                            " RXtime: " << Simulator::Now () <<
                            " Delay: " << Simulator::Now () - seqTs.GetTs ());
             }
+
+          
 
           m_lossCounter.NotifyReceived (currentSequenceNumber);
           m_received++;

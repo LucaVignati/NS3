@@ -1,0 +1,3 @@
+[submodule "NS3Wrapper"]
+	path = NS3Wrapper
+	url = https://github.com/LucaVignati/NS3Wrapper.git

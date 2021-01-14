@@ -320,6 +320,11 @@ UdpEchoClient::Send (void)
       //
       NS_ASSERT_MSG (m_dataSize == m_size, "UdpEchoClient::Send(): m_size and m_dataSize inconsistent");
       NS_ASSERT_MSG (m_data, "UdpEchoClient::Send(): m_dataSize but no m_data");
+
+      int64_t now = Simulator::Now().GetMicroSeconds();
+      memcpy(&m_data[5], &now, sizeof(now));
+      memcpy(&m_data[5 + sizeof(now)], &m_sent, sizeof(m_sent));
+
       p = Create<Packet> (m_data, m_dataSize);
     }
   else

@@ -29,8 +29,11 @@
 #include "ns3/socket-factory.h"
 #include "ns3/packet.h"
 #include "ns3/uinteger.h"
+#include <stdlib.h>
+#include <time.h>
 
 #include "udp-echo-server.h"
+#include "seq-ts-header.h"
 
 namespace ns3 {
 
@@ -159,7 +162,14 @@ UdpEchoServer::HandleRead (Ptr<Socket> socket)
 
   Ptr<Packet> packet;
   Address from;
+  Address to;
   Address localAddress;
+  srand(time(NULL));
+  Time delay = Seconds((0.5 +  static_cast<double>(rand() % 101)/100)*0.001);
+  //Time delay = Seconds(0);
+  //std::cout << delay << std::endl;
+  uint8_t *data;
+
   while ((packet = socket->RecvFrom (from)))
     {
       socket->GetSockName (localAddress);
@@ -178,11 +188,23 @@ UdpEchoServer::HandleRead (Ptr<Socket> socket)
                        Inet6SocketAddress::ConvertFrom (from).GetPort ());
         }
 
+      int pktSize = packet->GetSize();
+      data = new uint8_t[pktSize];
+      packet->CopyData(data, pktSize);
+      Ipv4Address ip = Ipv4Address();
+      ip = ip.Deserialize(data);
+      to = InetSocketAddress(ip, data[4]);
+
+      /*ip.Print(std::cout);
+      std::cout << std::endl;*/
+
       packet->RemoveAllPacketTags ();
       packet->RemoveAllByteTags ();
 
-      NS_LOG_LOGIC ("Echoing packet");
-      socket->SendTo (packet, 0, from);
+
+      NS_LOG_LOGIC ("Forwarding packet");
+      int (Socket::*fp)(Ptr<ns3::Packet>, uint32_t, const ns3::Address&) = &ns3::Socket::SendTo;
+      Simulator::Schedule(delay, fp, socket, packet, 0, to);
 
       if (InetSocketAddress::IsMatchingType (from))
         {

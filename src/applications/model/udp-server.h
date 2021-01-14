@@ -80,6 +80,19 @@ public:
    *  be a multiple of 8
    */
   void SetPacketWindowSize (uint16_t size);
+
+  /**
+   * \brief Set the maximum allowed latency. Packets arriving past this treshold
+   * are considered lost.
+   * \param m The maximum allowed latency in milliseconds.
+   */
+  void SetMaxLatency (uint16_t m);
+
+  /**
+   * \brief Set the histogram where each latency value will be stored.
+   * \param h The reference to the latency histogram.
+   */
+  void SetDataVectors (uint64_t *v, uint64_t *k);
 protected:
   virtual void DoDispose (void);
 
@@ -102,6 +115,9 @@ private:
   Ptr<Socket> m_socket6; //!< IPv6 Socket
   uint64_t m_received; //!< Number of received packets
   PacketLossCounter m_lossCounter; //!< Lost packet counter
+  uint64_t *latency; //!< Latency vector
+  uint64_t *arrivalTime; //!< Arrival time vector
+  uint16_t m_maxLatency; //!< Treshold beyond which packets must be considered lost
 
   /// Callbacks for tracing the packet Rx events
   TracedCallback<Ptr<const Packet> > m_rxTrace;
