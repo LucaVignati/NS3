@@ -86,7 +86,7 @@ main (int argc, char *argv[])
   int numerology = 2;
   
   
-  //enum BandwidthPartInfo::Scenario scenarioEnum = BandwidthPartInfo::RMa; //UMi_Buildings
+  enum BandwidthPartInfo::Scenario scenarioEnum = BandwidthPartInfo::RMa; //UMi_Buildings
 
   CommandLine cmd;
   cmd.AddValue("numberOfueNodes",
@@ -150,7 +150,22 @@ main (int argc, char *argv[])
   BandwidthPartInfoPtrVector allBwps;
   CcBwpCreator ccBwpCreator;
 
-  OperationBandInfo band;
+  //OperationBandInfo band;
+  
+  const uint8_t numCcPerBand = 1;  // in this example we have a single band, and that band is composed of a single component carrier
+
+  /* Create the configuration for the CcBwpHelper. SimpleOperationBandConf creates
+   * a single BWP per CC and a single BWP in CC.
+   *
+   * Hence, the configured spectrum is:
+   *
+   * |---------------------------------Band--------------------------------|
+   * |----------------------------------CC---------------------------------|
+   * |---------------BWP0---------------|---------------BWP1---------------|
+   */
+  CcBwpCreator::SimpleOperationBandConf bandConf (frequency, bwpBandwidth, numCcPerBand, scenarioEnum);
+  bandConf.m_numBwp = 2; // Set the number of Bandwidth Parts to 2
+  OperationBandInfo band = ccBwpCreator.CreateOperationBandContiguousCc (bandConf);
 
   //For the case of manual configuration of CCs and BWPs
   std::unique_ptr<ComponentCarrierInfo> cc0 (new ComponentCarrierInfo ());
@@ -206,22 +221,6 @@ main (int argc, char *argv[])
   ++bwpCount;
 
   band.AddCc (std::move(cc0));
-
-
-  //const uint8_t numCcPerBand = 1;  // in this example we have a single band, and that band is composed of a single component carrier
-
-  /* Create the configuration for the CcBwpHelper. SimpleOperationBandConf creates
-   * a single BWP per CC and a single BWP in CC.
-   *
-   * Hence, the configured spectrum is:
-   *
-   * |---------------------------------Band--------------------------------|
-   * |----------------------------------CC---------------------------------|
-   * |---------------BWP0---------------|---------------BWP1---------------|
-   */
-  /*CcBwpCreator::SimpleOperationBandConf bandConf (frequency, bandwidth, numCcPerBand, scenarioEnum);
-  bandConf.m_numBwp = 2; // Set the number of Bandwidth Parts to 2
-  OperationBandInfo band = ccBwpCreator.CreateOperationBandContiguousCc (bandConf);*/
 
   Config::SetDefault ("ns3::ThreeGppChannelModel::UpdatePeriod",TimeValue (MilliSeconds(0)));
   nrHelper->SetChannelConditionModelAttribute ("UpdatePeriod", TimeValue (MilliSeconds (0)));
