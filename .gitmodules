@@ -4,6 +4,3 @@
 [submodule "contrib/nr"]
 	path = contrib/nr
 	url = https://github.com/LucaVignati/nr.git
-[submodule "graphs"]
-	path = graphs
-	url = https://github.com/LucaVignati/graphs.git
