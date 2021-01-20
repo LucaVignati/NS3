@@ -32,92 +32,107 @@
 #include "packet-loss-counter.h"
 
 #include "seq-ts-header.h"
-#include "udp-server.h"
+#include "udp-iomust-server.h"
 
 namespace ns3 {
 
-NS_LOG_COMPONENT_DEFINE ("UdpServer");
+NS_LOG_COMPONENT_DEFINE ("UdpIomustServer");
 
-NS_OBJECT_ENSURE_REGISTERED (UdpServer);
+NS_OBJECT_ENSURE_REGISTERED (UdpIomustServer);
 
 
 TypeId
-UdpServer::GetTypeId (void)
+UdpIomustServer::GetTypeId (void)
 {
-  static TypeId tid = TypeId ("ns3::UdpServer")
+  static TypeId tid = TypeId ("ns3::UdpIomustServer")
     .SetParent<Application> ()
     .SetGroupName("Applications")
-    .AddConstructor<UdpServer> ()
+    .AddConstructor<UdpIomustServer> ()
     .AddAttribute ("Port",
                    "Port on which we listen for incoming packets.",
                    UintegerValue (100),
-                   MakeUintegerAccessor (&UdpServer::m_port),
+                   MakeUintegerAccessor (&UdpIomustServer::m_port),
                    MakeUintegerChecker<uint16_t> ())
     .AddAttribute ("PacketWindowSize",
                    "The size of the window used to compute the packet loss. This value should be a multiple of 8.",
                    UintegerValue (32),
-                   MakeUintegerAccessor (&UdpServer::GetPacketWindowSize,
-                                         &UdpServer::SetPacketWindowSize),
+                   MakeUintegerAccessor (&UdpIomustServer::GetPacketWindowSize,
+                                         &UdpIomustServer::SetPacketWindowSize),
                    MakeUintegerChecker<uint16_t> (8,256))
     .AddTraceSource ("Rx", "A packet has been received",
-                     MakeTraceSourceAccessor (&UdpServer::m_rxTrace),
+                     MakeTraceSourceAccessor (&UdpIomustServer::m_rxTrace),
                      "ns3::Packet::TracedCallback")
     .AddTraceSource ("RxWithAddresses", "A packet has been received",
-                     MakeTraceSourceAccessor (&UdpServer::m_rxTraceWithAddresses),
+                     MakeTraceSourceAccessor (&UdpIomustServer::m_rxTraceWithAddresses),
                      "ns3::Packet::TwoAddressTracedCallback")
   ;
   return tid;
 }
 
-UdpServer::UdpServer ()
+UdpIomustServer::UdpIomustServer ()
   : m_lossCounter (0)
 {
   NS_LOG_FUNCTION (this);
   m_received=0;
 }
 
-UdpServer::~UdpServer ()
+UdpIomustServer::~UdpIomustServer ()
 {
   NS_LOG_FUNCTION (this);
 }
 
 uint16_t
-UdpServer::GetPacketWindowSize () const
+UdpIomustServer::GetPacketWindowSize () const
 {
   NS_LOG_FUNCTION (this);
   return m_lossCounter.GetBitMapSize ();
 }
 
 void
-UdpServer::SetPacketWindowSize (uint16_t size)
+UdpIomustServer::SetPacketWindowSize (uint16_t size)
 {
   NS_LOG_FUNCTION (this << size);
   m_lossCounter.SetBitMapSize (size);
 }
 
 uint32_t
-UdpServer::GetLost (void) const
+UdpIomustServer::GetLost (void) const
 {
   NS_LOG_FUNCTION (this);
   return m_lossCounter.GetLost ();
 }
 
 uint64_t
-UdpServer::GetReceived (void) const
+UdpIomustServer::GetReceived (void) const
 {
   NS_LOG_FUNCTION (this);
   return m_received;
 }
 
 void
-UdpServer::DoDispose (void)
+UdpIomustServer::SetMaxLatency(uint16_t m)
+{
+  NS_LOG_FUNCTION(this);
+  m_maxLatency = m;
+}
+
+void
+UdpIomustServer::SetDataVectors(uint64_t *v, uint64_t *k)
+{
+  NS_LOG_FUNCTION(this);
+  arrivalTime = v;
+  latency = k;
+}
+
+void
+UdpIomustServer::DoDispose (void)
 {
   NS_LOG_FUNCTION (this);
   Application::DoDispose ();
 }
 
 void
-UdpServer::StartApplication (void)
+UdpIomustServer::StartApplication (void)
 {
   NS_LOG_FUNCTION (this);
 
@@ -133,7 +148,7 @@ UdpServer::StartApplication (void)
         }
     }
 
-  m_socket->SetRecvCallback (MakeCallback (&UdpServer::HandleRead, this));
+  m_socket->SetRecvCallback (MakeCallback (&UdpIomustServer::HandleRead, this));
 
   if (m_socket6 == 0)
     {
@@ -147,12 +162,12 @@ UdpServer::StartApplication (void)
         }
     }
 
-  m_socket6->SetRecvCallback (MakeCallback (&UdpServer::HandleRead, this));
+  m_socket6->SetRecvCallback (MakeCallback (&UdpIomustServer::HandleRead, this));
 
 }
 
 void
-UdpServer::StopApplication ()
+UdpIomustServer::StopApplication ()
 {
   NS_LOG_FUNCTION (this);
 
@@ -163,12 +178,13 @@ UdpServer::StopApplication ()
 }
 
 void
-UdpServer::HandleRead (Ptr<Socket> socket)
+UdpIomustServer::HandleRead (Ptr<Socket> socket)
 {
   NS_LOG_FUNCTION (this << socket);
   Ptr<Packet> packet;
   Address from;
   Address localAddress;
+  uint8_t *data;
   while ((packet = socket->RecvFrom (from)))
     {
       socket->GetSockName (localAddress);
@@ -176,6 +192,17 @@ UdpServer::HandleRead (Ptr<Socket> socket)
       m_rxTraceWithAddresses (packet, from, localAddress);
       if (packet->GetSize () > 0)
         {
+          int pktSize = packet->GetSize();
+          data = new uint8_t[pktSize];
+          packet->CopyData(data, pktSize);
+          uint64_t sendTime;
+          uint32_t seqN;
+          memcpy(&sendTime, &data[5], sizeof(sendTime));
+          memcpy(&seqN, &data[5 + sizeof(sendTime)], sizeof(seqN));
+          int64_t delay = Simulator::Now().GetMicroSeconds() - sendTime;
+          latency[seqN] = delay;
+          arrivalTime[seqN] = Simulator::Now().GetMicroSeconds();
+          //std::cout << seqN << ": " << arrivalTime[seqN] << " - " << sendTime << " = " << delay << std::endl;
           SeqTsHeader seqTs;
           packet->RemoveHeader (seqTs);
           uint32_t currentSequenceNumber = seqTs.GetSeq ();
@@ -199,6 +226,8 @@ UdpServer::HandleRead (Ptr<Socket> socket)
                            " RXtime: " << Simulator::Now () <<
                            " Delay: " << Simulator::Now () - seqTs.GetTs ());
             }
+
+          
 
           m_lossCounter.NotifyReceived (currentSequenceNumber);
           m_received++;

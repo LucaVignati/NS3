@@ -27,63 +27,63 @@
 #include "ns3/packet.h"
 #include "ns3/uinteger.h"
 #include "ns3/trace-source-accessor.h"
-#include "udp-echo-client.h"
+#include "udp-iomust-client.h"
 
 namespace ns3 {
 
-NS_LOG_COMPONENT_DEFINE ("UdpEchoClientApplication");
+NS_LOG_COMPONENT_DEFINE ("UdpIomustClientApplication");
 
-NS_OBJECT_ENSURE_REGISTERED (UdpEchoClient);
+NS_OBJECT_ENSURE_REGISTERED (UdpIomustClient);
 
 TypeId
-UdpEchoClient::GetTypeId (void)
+UdpIomustClient::GetTypeId (void)
 {
-  static TypeId tid = TypeId ("ns3::UdpEchoClient")
+  static TypeId tid = TypeId ("ns3::UdpIomustClient")
     .SetParent<Application> ()
     .SetGroupName("Applications")
-    .AddConstructor<UdpEchoClient> ()
+    .AddConstructor<UdpIomustClient> ()
     .AddAttribute ("MaxPackets", 
                    "The maximum number of packets the application will send",
                    UintegerValue (100),
-                   MakeUintegerAccessor (&UdpEchoClient::m_count),
+                   MakeUintegerAccessor (&UdpIomustClient::m_count),
                    MakeUintegerChecker<uint32_t> ())
     .AddAttribute ("Interval", 
                    "The time to wait between packets",
                    TimeValue (Seconds (1.0)),
-                   MakeTimeAccessor (&UdpEchoClient::m_interval),
+                   MakeTimeAccessor (&UdpIomustClient::m_interval),
                    MakeTimeChecker ())
     .AddAttribute ("RemoteAddress", 
                    "The destination Address of the outbound packets",
                    AddressValue (),
-                   MakeAddressAccessor (&UdpEchoClient::m_peerAddress),
+                   MakeAddressAccessor (&UdpIomustClient::m_peerAddress),
                    MakeAddressChecker ())
     .AddAttribute ("RemotePort", 
                    "The destination port of the outbound packets",
                    UintegerValue (0),
-                   MakeUintegerAccessor (&UdpEchoClient::m_peerPort),
+                   MakeUintegerAccessor (&UdpIomustClient::m_peerPort),
                    MakeUintegerChecker<uint16_t> ())
-    .AddAttribute ("PacketSize", "Size of echo data in outbound packets",
+    .AddAttribute ("PacketSize", "Size of Iomust data in outbound packets",
                    UintegerValue (100),
-                   MakeUintegerAccessor (&UdpEchoClient::SetDataSize,
-                                         &UdpEchoClient::GetDataSize),
+                   MakeUintegerAccessor (&UdpIomustClient::SetDataSize,
+                                         &UdpIomustClient::GetDataSize),
                    MakeUintegerChecker<uint32_t> ())
     .AddTraceSource ("Tx", "A new packet is created and is sent",
-                     MakeTraceSourceAccessor (&UdpEchoClient::m_txTrace),
+                     MakeTraceSourceAccessor (&UdpIomustClient::m_txTrace),
                      "ns3::Packet::TracedCallback")
     .AddTraceSource ("Rx", "A packet has been received",
-                     MakeTraceSourceAccessor (&UdpEchoClient::m_rxTrace),
+                     MakeTraceSourceAccessor (&UdpIomustClient::m_rxTrace),
                      "ns3::Packet::TracedCallback")
     .AddTraceSource ("TxWithAddresses", "A new packet is created and is sent",
-                     MakeTraceSourceAccessor (&UdpEchoClient::m_txTraceWithAddresses),
+                     MakeTraceSourceAccessor (&UdpIomustClient::m_txTraceWithAddresses),
                      "ns3::Packet::TwoAddressTracedCallback")
     .AddTraceSource ("RxWithAddresses", "A packet has been received",
-                     MakeTraceSourceAccessor (&UdpEchoClient::m_rxTraceWithAddresses),
+                     MakeTraceSourceAccessor (&UdpIomustClient::m_rxTraceWithAddresses),
                      "ns3::Packet::TwoAddressTracedCallback")
   ;
   return tid;
 }
 
-UdpEchoClient::UdpEchoClient ()
+UdpIomustClient::UdpIomustClient ()
 {
   NS_LOG_FUNCTION (this);
   m_sent = 0;
@@ -93,7 +93,7 @@ UdpEchoClient::UdpEchoClient ()
   m_dataSize = 0;
 }
 
-UdpEchoClient::~UdpEchoClient()
+UdpIomustClient::~UdpIomustClient()
 {
   NS_LOG_FUNCTION (this);
   m_socket = 0;
@@ -104,7 +104,7 @@ UdpEchoClient::~UdpEchoClient()
 }
 
 void 
-UdpEchoClient::SetRemote (Address ip, uint16_t port)
+UdpIomustClient::SetRemote (Address ip, uint16_t port)
 {
   NS_LOG_FUNCTION (this << ip << port);
   m_peerAddress = ip;
@@ -112,21 +112,21 @@ UdpEchoClient::SetRemote (Address ip, uint16_t port)
 }
 
 void 
-UdpEchoClient::SetRemote (Address addr)
+UdpIomustClient::SetRemote (Address addr)
 {
   NS_LOG_FUNCTION (this << addr);
   m_peerAddress = addr;
 }
 
 void
-UdpEchoClient::DoDispose (void)
+UdpIomustClient::DoDispose (void)
 {
   NS_LOG_FUNCTION (this);
   Application::DoDispose ();
 }
 
 void 
-UdpEchoClient::StartApplication (void)
+UdpIomustClient::StartApplication (void)
 {
   NS_LOG_FUNCTION (this);
 
@@ -172,13 +172,13 @@ UdpEchoClient::StartApplication (void)
         }
     }
 
-  m_socket->SetRecvCallback (MakeCallback (&UdpEchoClient::HandleRead, this));
+  m_socket->SetRecvCallback (MakeCallback (&UdpIomustClient::HandleRead, this));
   m_socket->SetAllowBroadcast (true);
   ScheduleTransmit (Seconds (0.));
 }
 
 void 
-UdpEchoClient::StopApplication ()
+UdpIomustClient::StopApplication ()
 {
   NS_LOG_FUNCTION (this);
 
@@ -193,12 +193,12 @@ UdpEchoClient::StopApplication ()
 }
 
 void 
-UdpEchoClient::SetDataSize (uint32_t dataSize)
+UdpIomustClient::SetDataSize (uint32_t dataSize)
 {
   NS_LOG_FUNCTION (this << dataSize);
 
   //
-  // If the client is setting the echo packet data size this way, we infer
+  // If the client is setting the packet data size this way, we infer
   // that she doesn't care about the contents of the packet at all, so 
   // neither will we.
   //
@@ -209,14 +209,14 @@ UdpEchoClient::SetDataSize (uint32_t dataSize)
 }
 
 uint32_t 
-UdpEchoClient::GetDataSize (void) const
+UdpIomustClient::GetDataSize (void) const
 {
   NS_LOG_FUNCTION (this);
   return m_size;
 }
 
 void 
-UdpEchoClient::SetFill (std::string fill)
+UdpIomustClient::SetFill (std::string fill)
 {
   NS_LOG_FUNCTION (this << fill);
 
@@ -238,7 +238,7 @@ UdpEchoClient::SetFill (std::string fill)
 }
 
 void 
-UdpEchoClient::SetFill (uint8_t fill, uint32_t dataSize)
+UdpIomustClient::SetFill (uint8_t fill, uint32_t dataSize)
 {
   NS_LOG_FUNCTION (this << fill << dataSize);
   if (dataSize != m_dataSize)
@@ -257,7 +257,7 @@ UdpEchoClient::SetFill (uint8_t fill, uint32_t dataSize)
 }
 
 void 
-UdpEchoClient::SetFill (uint8_t *fill, uint32_t fillSize, uint32_t dataSize)
+UdpIomustClient::SetFill (uint8_t *fill, uint32_t fillSize, uint32_t dataSize)
 {
   NS_LOG_FUNCTION (this << fill << fillSize << dataSize);
   if (dataSize != m_dataSize)
@@ -296,14 +296,14 @@ UdpEchoClient::SetFill (uint8_t *fill, uint32_t fillSize, uint32_t dataSize)
 }
 
 void 
-UdpEchoClient::ScheduleTransmit (Time dt)
+UdpIomustClient::ScheduleTransmit (Time dt)
 {
   NS_LOG_FUNCTION (this << dt);
-  m_sendEvent = Simulator::Schedule (dt, &UdpEchoClient::Send, this);
+  m_sendEvent = Simulator::Schedule (dt, &UdpIomustClient::Send, this);
 }
 
 void 
-UdpEchoClient::Send (void)
+UdpIomustClient::Send (void)
 {
   NS_LOG_FUNCTION (this);
 
@@ -318,8 +318,13 @@ UdpEchoClient::Send (void)
       // the Fill functions is called.  In this case, m_size must have been set
       // to agree with m_dataSize
       //
-      NS_ASSERT_MSG (m_dataSize == m_size, "UdpEchoClient::Send(): m_size and m_dataSize inconsistent");
-      NS_ASSERT_MSG (m_data, "UdpEchoClient::Send(): m_dataSize but no m_data");
+      NS_ASSERT_MSG (m_dataSize == m_size, "UdpIomustClient::Send(): m_size and m_dataSize inconsistent");
+      NS_ASSERT_MSG (m_data, "UdpIomustClient::Send(): m_dataSize but no m_data");
+
+      int64_t now = Simulator::Now().GetMicroSeconds();
+      memcpy(&m_data[5], &now, sizeof(now));
+      memcpy(&m_data[5 + sizeof(now)], &m_sent, sizeof(m_sent));
+
       p = Create<Packet> (m_data, m_dataSize);
     }
   else
@@ -377,7 +382,7 @@ UdpEchoClient::Send (void)
 }
 
 void
-UdpEchoClient::HandleRead (Ptr<Socket> socket)
+UdpIomustClient::HandleRead (Ptr<Socket> socket)
 {
   NS_LOG_FUNCTION (this << socket);
   Ptr<Packet> packet;

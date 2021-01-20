@@ -277,15 +277,15 @@ main (int argc, char *argv[])
 
 
   // Install and start applications on UEs and remote host
-  UdpEchoServerHelper udpEchoServer(9);
-  ApplicationContainer serverApps = udpEchoServer.Install (remoteHost);
+  UdpEchoServerHelper udpForwardServer(9);
+  ApplicationContainer serverApps = udpForwardServer.Install (remoteHost);
   serverApps.Start (Seconds (startTime));
   serverApps.Stop (Seconds (endTime));
 
   int j;
   //uint64_t e2eLatVect[numberOfueNodes][nPackets];
   uint64_t *e2eLatVect[numberOfueNodes][2];
-  UdpServerHelper udpServer(5);
+  UdpIomustServerHelper udpServer(5);
   for(int i = 0; i < numberOfueNodes; i++)  {
     uint64_t *arrivalTimeVect = (uint64_t *) malloc(nPackets * sizeof(uint64_t));
     uint64_t *latVect = (uint64_t *) malloc(nPackets * sizeof(uint64_t));
@@ -296,7 +296,7 @@ main (int argc, char *argv[])
     e2eLatVect[i][0] = arrivalTimeVect;
     e2eLatVect[i][1] = latVect;
     ApplicationContainer ueServers = udpServer.Install(ueNodes.Get(i));
-    Ptr<UdpServer> server = udpServer.GetServer();
+    Ptr<UdpIomustServer> server = udpServer.GetServer();
     server->SetMaxLatency(thrsLatency);
     server->SetDataVectors(arrivalTimeVect, latVect);
     ueServers.Start(Seconds(startTime));
@@ -309,7 +309,7 @@ main (int argc, char *argv[])
       Ptr<NetDevice> device = node->GetDevice(0);
       int32_t interface = node->GetObject<Ipv4>()->GetInterfaceForDevice(device);
       Ipv4Address address = node->GetObject<Ipv4>()->GetAddress(interface, 0).GetLocal();
-      UdpEchoClientHelper udpClient(remoteHostAddr, 9);
+      UdpIomustClientHelper udpClient(remoteHostAddr, 9);
       //address.Print(std::cout);
       //std::cout << std::endl;
       udpClient.SetAttribute ("MaxPackets", UintegerValue (nPackets));

@@ -29,42 +29,45 @@
 #include "ns3/socket-factory.h"
 #include "ns3/packet.h"
 #include "ns3/uinteger.h"
+#include <stdlib.h>
+#include <time.h>
 
-#include "udp-echo-server.h"
+#include "udp-forward-server.h"
+#include "seq-ts-header.h"
 
 namespace ns3 {
 
-NS_LOG_COMPONENT_DEFINE ("UdpEchoServerApplication");
+NS_LOG_COMPONENT_DEFINE ("UdpForwardServerApplication");
 
-NS_OBJECT_ENSURE_REGISTERED (UdpEchoServer);
+NS_OBJECT_ENSURE_REGISTERED (UdpForwardServer);
 
 TypeId
-UdpEchoServer::GetTypeId (void)
+UdpForwardServer::GetTypeId (void)
 {
-  static TypeId tid = TypeId ("ns3::UdpEchoServer")
+  static TypeId tid = TypeId ("ns3::UdpForwardServer")
     .SetParent<Application> ()
     .SetGroupName("Applications")
-    .AddConstructor<UdpEchoServer> ()
+    .AddConstructor<UdpForwardServer> ()
     .AddAttribute ("Port", "Port on which we listen for incoming packets.",
                    UintegerValue (9),
-                   MakeUintegerAccessor (&UdpEchoServer::m_port),
+                   MakeUintegerAccessor (&UdpForwardServer::m_port),
                    MakeUintegerChecker<uint16_t> ())
     .AddTraceSource ("Rx", "A packet has been received",
-                     MakeTraceSourceAccessor (&UdpEchoServer::m_rxTrace),
+                     MakeTraceSourceAccessor (&UdpForwardServer::m_rxTrace),
                      "ns3::Packet::TracedCallback")
     .AddTraceSource ("RxWithAddresses", "A packet has been received",
-                     MakeTraceSourceAccessor (&UdpEchoServer::m_rxTraceWithAddresses),
+                     MakeTraceSourceAccessor (&UdpForwardServer::m_rxTraceWithAddresses),
                      "ns3::Packet::TwoAddressTracedCallback")
   ;
   return tid;
 }
 
-UdpEchoServer::UdpEchoServer ()
+UdpForwardServer::UdpForwardServer ()
 {
   NS_LOG_FUNCTION (this);
 }
 
-UdpEchoServer::~UdpEchoServer()
+UdpForwardServer::~UdpForwardServer()
 {
   NS_LOG_FUNCTION (this);
   m_socket = 0;
@@ -72,14 +75,14 @@ UdpEchoServer::~UdpEchoServer()
 }
 
 void
-UdpEchoServer::DoDispose (void)
+UdpForwardServer::DoDispose (void)
 {
   NS_LOG_FUNCTION (this);
   Application::DoDispose ();
 }
 
 void 
-UdpEchoServer::StartApplication (void)
+UdpForwardServer::StartApplication (void)
 {
   NS_LOG_FUNCTION (this);
 
@@ -131,12 +134,12 @@ UdpEchoServer::StartApplication (void)
         }
     }
 
-  m_socket->SetRecvCallback (MakeCallback (&UdpEchoServer::HandleRead, this));
-  m_socket6->SetRecvCallback (MakeCallback (&UdpEchoServer::HandleRead, this));
+  m_socket->SetRecvCallback (MakeCallback (&UdpForwardServer::HandleRead, this));
+  m_socket6->SetRecvCallback (MakeCallback (&UdpForwardServer::HandleRead, this));
 }
 
 void 
-UdpEchoServer::StopApplication ()
+UdpForwardServer::StopApplication ()
 {
   NS_LOG_FUNCTION (this);
 
@@ -153,13 +156,20 @@ UdpEchoServer::StopApplication ()
 }
 
 void 
-UdpEchoServer::HandleRead (Ptr<Socket> socket)
+UdpForwardServer::HandleRead (Ptr<Socket> socket)
 {
   NS_LOG_FUNCTION (this << socket);
 
   Ptr<Packet> packet;
   Address from;
+  Address to;
   Address localAddress;
+  srand(time(NULL));
+  Time delay = Seconds((0.5 +  static_cast<double>(rand() % 101)/100)*0.001);
+  //Time delay = Seconds(0);
+  //std::cout << delay << std::endl;
+  uint8_t *data;
+
   while ((packet = socket->RecvFrom (from)))
     {
       socket->GetSockName (localAddress);
@@ -178,11 +188,23 @@ UdpEchoServer::HandleRead (Ptr<Socket> socket)
                        Inet6SocketAddress::ConvertFrom (from).GetPort ());
         }
 
+      int pktSize = packet->GetSize();
+      data = new uint8_t[pktSize];
+      packet->CopyData(data, pktSize);
+      Ipv4Address ip = Ipv4Address();
+      ip = ip.Deserialize(data);
+      to = InetSocketAddress(ip, data[4]);
+
+      /*ip.Print(std::cout);
+      std::cout << std::endl;*/
+
       packet->RemoveAllPacketTags ();
       packet->RemoveAllByteTags ();
 
-      NS_LOG_LOGIC ("Echoing packet");
-      socket->SendTo (packet, 0, from);
+
+      NS_LOG_LOGIC ("Forwarding packet");
+      int (Socket::*fp)(Ptr<ns3::Packet>, uint32_t, const ns3::Address&) = &ns3::Socket::SendTo;
+      Simulator::Schedule(delay, fp, socket, packet, 0, to);
 
       if (InetSocketAddress::IsMatchingType (from))
         {
