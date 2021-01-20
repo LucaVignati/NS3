@@ -263,8 +263,9 @@ main (int argc, char *argv[])
   
   // Create a single RemoteHost
   NodeContainer remoteHostContainer;
-  remoteHostContainer.Create (1);
+  remoteHostContainer.Create (2);
   Ptr<Node> remoteHost = remoteHostContainer.Get (0);
+  Ptr<Node> trafficRemoteHost = remoteHostContainer.Get (1);
   InternetStackHelper internet;
   internet.Install (remoteHostContainer);
 
@@ -274,15 +275,23 @@ main (int argc, char *argv[])
   p2ph.SetDeviceAttribute ("Mtu", UintegerValue (1500));
   p2ph.SetChannelAttribute ("Delay", TimeValue (Seconds (0.00001)));
   NetDeviceContainer internetDevices = p2ph.Install (pgw, remoteHost);
+  NetDeviceContainer trafficInternetDevices = p2ph.Install(pgw, trafficRemoteHost);
   Ipv4AddressHelper ipv4h;
   ipv4h.SetBase ("1.0.0.0", "255.0.0.0");
   Ipv4InterfaceContainer internetIpIfaces = ipv4h.Assign (internetDevices);
   // interface 0 is localhost, 1 is the p2p device
   Ipv4Address remoteHostAddr = internetIpIfaces.GetAddress (1);
 
+  /*Ipv4InterfaceContainer trafficInternetIpIfaces = ipv4h.Assign (trafficInternetDevices);
+  // interface 0 is localhost, 1 is the p2p device
+  Ipv4Address trafficRemoteHostAddr = trafficInternetIpIfaces.GetAddress (1);*/
+
   Ipv4StaticRoutingHelper ipv4RoutingHelper;
   Ptr<Ipv4StaticRouting> remoteHostStaticRouting = ipv4RoutingHelper.GetStaticRouting (remoteHost->GetObject<Ipv4> ());
   remoteHostStaticRouting->AddNetworkRouteTo (Ipv4Address ("7.0.0.0"), Ipv4Mask ("255.0.0.0"), 1);
+
+  Ptr<Ipv4StaticRouting> trafficRemoteHostStaticRouting = ipv4RoutingHelper.GetStaticRouting (trafficRemoteHost->GetObject<Ipv4> ());
+  trafficRemoteHostStaticRouting->AddNetworkRouteTo (Ipv4Address ("8.0.0.0"), Ipv4Mask ("255.0.0.0"), 1);
 
   NodeContainer ueNodes;
   NodeContainer enbNodes;
@@ -294,6 +303,10 @@ main (int argc, char *argv[])
     ueNodes.Add(bandNodes[u]);
     std::cout << "Band " << u + 1 << ": " << bands[u] << std::endl;
   }
+
+  NodeContainer trafficNode;
+  trafficNode.Create(1);
+  ueNodes.Add(trafficNode);
 
   //sprintf(comment, "%d", numberOfueNodes); 
 
@@ -356,6 +369,12 @@ main (int argc, char *argv[])
   mobility.SetPositionAllocator(positionAlloc);
   mobility.Install(ueNodes);
   //BuildingsHelper::Install(ueNodes);
+
+  positionAlloc = CreateObject<ListPositionAllocator> ();
+  positionAlloc->Add (Vector(squareWidth/4, squareWidth/2, 1));
+  mobility.SetPositionAllocator(positionAlloc);
+  mobility.Install(trafficNode);
+  //BuildingsHlper::Install(trafficNode);
 
   positionAlloc = CreateObject<ListPositionAllocator> ();
   positionAlloc->Add (Vector(squareWidth/2, squareWidth/2, 20));
@@ -426,6 +445,16 @@ main (int argc, char *argv[])
   serverApps.Start (Seconds (startTime));
   serverApps.Stop (Seconds (endTime));
 
+  // Install and start traffic server on traffic UE
+  Ptr<Node> node = trafficNode.Get(0);
+  Ptr<NetDevice> trafficDevice = node->GetDevice(0);
+  int32_t interface = node->GetObject<Ipv4>()->GetInterfaceForDevice(trafficDevice);
+  Ipv4Address address = node->GetObject<Ipv4>()->GetAddress(interface, 0).GetLocal();
+  UdpServerHelper udpTrafficServer(10);
+  ApplicationContainer trafficServerApps = udpTrafficServer.Install(node);
+  trafficServerApps.Start (Seconds (startTime));
+  trafficServerApps.Stop (Seconds (endTime));
+
   int j;
   //uint64_t e2eLatVect[numberOfueNodes][nPackets];
   uint64_t *e2eLatVect[numberOfueNodes][2];
@@ -487,6 +516,18 @@ main (int argc, char *argv[])
 
     }
   }
+
+  nrHelper->ActivateDedicatedEpsBearer (trafficDevice, lowLatencyBearerUL, ulTft);
+  nrHelper->ActivateDedicatedEpsBearer (trafficDevice, lowLatencyBearerDL, dlTft);
+
+  // Start traffic client on traffic remote host
+  UdpClientHelper udpTrafficClient(address, 10);
+  udpTrafficClient.SetAttribute("MaxPackets", UintegerValue(10000000));
+  udpTrafficClient.SetAttribute("PacketSize", UintegerValue(12000)); // 10^3 bytes
+  ApplicationContainer trafficClientApps = udpTrafficClient.Install(trafficRemoteHost);
+  trafficClientApps.Start (Seconds (startTime));
+  trafficClientApps.Stop (Seconds (endTime));
+
   // enable the traces provided by the nr module
   nrHelper->EnableTraces();
 
@@ -495,6 +536,7 @@ main (int argc, char *argv[])
   FlowMonitorHelper flowHelper;
   flowMonitor = flowHelper.Install(ueNodes);
   flowHelper.Install(remoteHost);
+  flowHelper.Install(trafficRemoteHost);
 
   AnimationInterface anim ("animation.xml");
   anim.SetMaxPktsPerTraceFile(5000000);
