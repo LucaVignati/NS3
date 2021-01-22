@@ -263,9 +263,8 @@ main (int argc, char *argv[])
   
   // Create a single RemoteHost
   NodeContainer remoteHostContainer;
-  remoteHostContainer.Create (2);
+  remoteHostContainer.Create (1);
   Ptr<Node> remoteHost = remoteHostContainer.Get (0);
-  Ptr<Node> trafficRemoteHost = remoteHostContainer.Get (1);
   InternetStackHelper internet;
   internet.Install (remoteHostContainer);
 
@@ -275,23 +274,15 @@ main (int argc, char *argv[])
   p2ph.SetDeviceAttribute ("Mtu", UintegerValue (1500));
   p2ph.SetChannelAttribute ("Delay", TimeValue (Seconds (0.00001)));
   NetDeviceContainer internetDevices = p2ph.Install (pgw, remoteHost);
-  NetDeviceContainer trafficInternetDevices = p2ph.Install(pgw, trafficRemoteHost);
   Ipv4AddressHelper ipv4h;
   ipv4h.SetBase ("1.0.0.0", "255.0.0.0");
   Ipv4InterfaceContainer internetIpIfaces = ipv4h.Assign (internetDevices);
   // interface 0 is localhost, 1 is the p2p device
   Ipv4Address remoteHostAddr = internetIpIfaces.GetAddress (1);
 
-  /*Ipv4InterfaceContainer trafficInternetIpIfaces = ipv4h.Assign (trafficInternetDevices);
-  // interface 0 is localhost, 1 is the p2p device
-  Ipv4Address trafficRemoteHostAddr = trafficInternetIpIfaces.GetAddress (1);*/
-
   Ipv4StaticRoutingHelper ipv4RoutingHelper;
   Ptr<Ipv4StaticRouting> remoteHostStaticRouting = ipv4RoutingHelper.GetStaticRouting (remoteHost->GetObject<Ipv4> ());
   remoteHostStaticRouting->AddNetworkRouteTo (Ipv4Address ("7.0.0.0"), Ipv4Mask ("255.0.0.0"), 1);
-
-  Ptr<Ipv4StaticRouting> trafficRemoteHostStaticRouting = ipv4RoutingHelper.GetStaticRouting (trafficRemoteHost->GetObject<Ipv4> ());
-  trafficRemoteHostStaticRouting->AddNetworkRouteTo (Ipv4Address ("8.0.0.0"), Ipv4Mask ("255.0.0.0"), 1);
 
   NodeContainer ueNodes;
   NodeContainer enbNodes;
@@ -523,8 +514,9 @@ main (int argc, char *argv[])
   // Start traffic client on traffic remote host
   UdpClientHelper udpTrafficClient(address, 10);
   udpTrafficClient.SetAttribute("MaxPackets", UintegerValue(10000000));
-  udpTrafficClient.SetAttribute("PacketSize", UintegerValue(12000)); // 10^3 bytes
-  ApplicationContainer trafficClientApps = udpTrafficClient.Install(trafficRemoteHost);
+  udpTrafficClient.SetAttribute("PacketSize", UintegerValue(14000)); // 14x10^3 bytes
+  udpTrafficClient.SetAttribute ("Interval", TimeValue (Seconds (interPacketInterval)));
+  ApplicationContainer trafficClientApps = udpTrafficClient.Install(remoteHost);
   trafficClientApps.Start (Seconds (startTime));
   trafficClientApps.Stop (Seconds (endTime));
 
@@ -536,7 +528,6 @@ main (int argc, char *argv[])
   FlowMonitorHelper flowHelper;
   flowMonitor = flowHelper.Install(ueNodes);
   flowHelper.Install(remoteHost);
-  flowHelper.Install(trafficRemoteHost);
 
   AnimationInterface anim ("animation.xml");
   anim.SetMaxPktsPerTraceFile(5000000);
