@@ -287,7 +287,7 @@ main (int argc, char *argv[])
 
 
   // Install and start applications on UEs and remote host
-  UdpEchoServerHelper udpForwardServer(9);
+  UdpForwardServerHelper udpForwardServer(9);
   ApplicationContainer serverApps = udpForwardServer.Install (remoteHost);
   serverApps.Start (Seconds (startTime));
   serverApps.Stop (Seconds (endTime));
