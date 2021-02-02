@@ -222,8 +222,8 @@ main (int argc, char *argv[])
 
   band.AddCc (std::move(cc0));
 
-  Config::SetDefault ("ns3::ThreeGppChannelModel::UpdatePeriod",TimeValue (MilliSeconds(0)));
-  nrHelper->SetChannelConditionModelAttribute ("UpdatePeriod", TimeValue (MilliSeconds (0)));
+  //Config::SetDefault ("ns3::ThreeGppChannelModel::UpdatePeriod",TimeValue (MilliSeconds(0)));
+  //nrHelper->SetChannelConditionModelAttribute ("UpdatePeriod", TimeValue (MilliSeconds (0)));
   nrHelper->SetPathlossAttribute ("ShadowingEnabled", BooleanValue (false));
 
   //Initialize channel and pathloss, plus other things inside band.
@@ -902,6 +902,7 @@ main (int argc, char *argv[])
   // Close the plot file.
   //plotFile5.close ();
 
+  std::cout << "Seed: " << seed << std::endl;
   std::cout << "Delivered Packets: " << deliveredPckPerc << "%" << std::endl;
   std::cout << "Late Packets (> 20ms): " << latePckPerc << "%" << std::endl;
   std::cout << "Lost Packets (> 10s): " << lostPckPerc << "%" << std::endl;

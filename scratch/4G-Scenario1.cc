@@ -128,6 +128,7 @@ main (int argc, char *argv[])
 
   // Set propagation model
   lteHelper->SetAttribute ("PathlossModel", StringValue ("ns3::ThreeGppRmaPropagationLossModel"));
+  lteHelper->SetPathlossModelAttribute ("ShadowingEnabled", BooleanValue (false));
   //lteHelper->SetAttribute ("PathlossModel", StringValue ("ns3::HybridBuildingsPropagationLossModel"));
   //lteHelper->SetPathlossModelAttribute("Los2NlosThr", DoubleValue(800));
   //lteHelper->SetAttribute ("PathlossModel", StringValue ("ns3::FriisPropagationLossModel"));
@@ -734,7 +735,7 @@ main (int argc, char *argv[])
   // Close the plot file.
   //plotFile5.close ();
 
-
+  std::cout << "Seed: " << seed << std::endl;
   std::cout << "Delivered Packets: " << deliveredPckPerc << "%" << std::endl;
   std::cout << "Late Packets (> 20ms): " << latePckPerc << "%" << std::endl;
   std::cout << "Lost Packets (> 10s): " << lostPckPerc << "%" << std::endl;
