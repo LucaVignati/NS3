@@ -176,6 +176,10 @@ main (int argc, char *argv[])
     std::cout << "Band " << u + 1 << ": " << bands[u] << std::endl;
   }
 
+  NodeContainer trafficNode;
+  trafficNode.Create(1);
+  ueNodes.Add(trafficNode);  
+
   /*Ptr<GridBuildingAllocator>  gridBuildingAllocator;
   gridBuildingAllocator = CreateObject<GridBuildingAllocator> ();
   gridBuildingAllocator->SetAttribute ("GridWidth", UintegerValue (50));
@@ -237,6 +241,12 @@ main (int argc, char *argv[])
   //BuildingsHelper::Install(ueNodes);
 
   positionAlloc = CreateObject<ListPositionAllocator> ();
+  positionAlloc->Add (Vector(squareWidth/4, squareWidth/2, 1));
+  mobility.SetPositionAllocator(positionAlloc);
+  mobility.Install(trafficNode);
+  //BuildingsHlper::Install(trafficNode);
+
+  positionAlloc = CreateObject<ListPositionAllocator> ();
   positionAlloc->Add (Vector(squareWidth/2, squareWidth/2, 20));
   mobility.SetPositionAllocator(positionAlloc);
   mobility.Install(enbNodes);
@@ -278,15 +288,25 @@ main (int argc, char *argv[])
 
 
   // Install and start applications on UEs and remote host
-  UdpEchoServerHelper udpEchoServer(9);
-  ApplicationContainer serverApps = udpEchoServer.Install (remoteHost);
+  UdpForwardServerHelper udpForwardServer(9);
+  ApplicationContainer serverApps = udpForwardServer.Install (remoteHost);
   serverApps.Start (Seconds (startTime));
   serverApps.Stop (Seconds (endTime));
+
+  // Install and start traffic server on traffic UE
+  Ptr<Node> node = trafficNode.Get(0);
+  Ptr<NetDevice> trafficDevice = node->GetDevice(0);
+  int32_t interface = node->GetObject<Ipv4>()->GetInterfaceForDevice(trafficDevice);
+  Ipv4Address address = node->GetObject<Ipv4>()->GetAddress(interface, 0).GetLocal();
+  UdpServerHelper udpTrafficServer(10);
+  ApplicationContainer trafficServerApps = udpTrafficServer.Install(node);
+  trafficServerApps.Start (Seconds (startTime));
+  trafficServerApps.Stop (Seconds (endTime));
 
   int j;
   //uint64_t e2eLatVect[numberOfueNodes][nPackets];
   uint64_t *e2eLatVect[numberOfueNodes][2];
-  UdpServerHelper udpServer(5);
+  UdpIomustServerHelper udpServer(5);
   for(int i = 0; i < numberOfueNodes; i++)  {
     uint64_t *arrivalTimeVect = (uint64_t *) malloc(nPackets * sizeof(uint64_t));
     uint64_t *latVect = (uint64_t *) malloc(nPackets * sizeof(uint64_t));
@@ -297,7 +317,7 @@ main (int argc, char *argv[])
     e2eLatVect[i][0] = arrivalTimeVect;
     e2eLatVect[i][1] = latVect;
     ApplicationContainer ueServers = udpServer.Install(ueNodes.Get(i));
-    Ptr<UdpServer> server = udpServer.GetServer();
+    Ptr<UdpIomustServer> server = udpServer.GetServer();
     server->SetMaxLatency(thrsLatency);
     server->SetDataVectors(arrivalTimeVect, latVect);
     ueServers.Start(Seconds(startTime));
@@ -310,7 +330,7 @@ main (int argc, char *argv[])
       Ptr<NetDevice> device = node->GetDevice(0);
       int32_t interface = node->GetObject<Ipv4>()->GetInterfaceForDevice(device);
       Ipv4Address address = node->GetObject<Ipv4>()->GetAddress(interface, 0).GetLocal();
-      UdpEchoClientHelper udpClient(remoteHostAddr, 9);
+      UdpIomustClientHelper udpClient(remoteHostAddr, 9);
       //address.Print(std::cout);
       //std::cout << std::endl;
       udpClient.SetAttribute ("MaxPackets", UintegerValue (nPackets));
@@ -327,6 +347,15 @@ main (int argc, char *argv[])
       }
     }
   }
+
+  // Start traffic client on traffic remote host
+  UdpClientHelper udpTrafficClient(address, 10);
+  udpTrafficClient.SetAttribute("MaxPackets", UintegerValue(10000000));
+  udpTrafficClient.SetAttribute("PacketSize", UintegerValue(14000)); // 14x10^3 bytes
+  udpTrafficClient.SetAttribute ("Interval", TimeValue (Seconds (interPacketInterval)));
+  ApplicationContainer trafficClientApps = udpTrafficClient.Install(remoteHost);
+  trafficClientApps.Start (Seconds (startTime));
+  trafficClientApps.Stop (Seconds (endTime));
 
   lteHelper->EnableTraces ();
   // Uncomment to enable PCAP tracing
