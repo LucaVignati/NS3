@@ -70,14 +70,15 @@ main (int argc, char *argv[])
   uint16_t numberOfBands = 1;
   double simTime = 2; // in seconds
   uint32_t squareWidth = 1000;
-  uint32_t radius = 200;
-  uint32_t height = 1;
+  uint32_t radius = 500;
+  double height = 1.5;
   double interPacketInterval = 1.0/1500.0;
+  int nPackets;
   uint32_t packetSize = 280;
   uint16_t thrsLatency = 20*1000;
   std::string comment = "";
   bool generateRem = false;
-  int seed = 1;
+  int seed = 0;
 
   double frequency = 2035e6; // central frequency
   //double bandwidth = 40e6; //bandwidth (UL+DL)
@@ -86,14 +87,14 @@ main (int argc, char *argv[])
   int numerology = 2;
   
   
-  enum BandwidthPartInfo::Scenario scenarioEnum = BandwidthPartInfo::RMa; //UMi_Buildings
+  enum BandwidthPartInfo::Scenario scenarioEnum = BandwidthPartInfo::UMa; //UMi_Buildings
 
   CommandLine cmd;
   cmd.AddValue("numberOfueNodes",
                 "Number of UE nodes",
                 numberOfueNodes);
   cmd.AddValue("comment",
-                "Comment to be added in the filenames of the plots.",
+                "Comment to be added in the filenames of the plots",
                 comment);
   cmd.AddValue("radius",
                 "Radius of the cirle in which the devices are randomly placed",
@@ -110,12 +111,18 @@ main (int argc, char *argv[])
   cmd.AddValue("numerology",
                 "Value defining the subcarrier spaceing and symbol lenght",
                 numerology);
+  cmd.AddValue("interPacketInterval",
+                "Inter packet interval [s]",
+                interPacketInterval);
+  cmd.AddValue("nPackets",
+                "Number of packets transmitted by each UE",
+                nPackets);
   cmd.Parse (argc, argv);
 
   double startTime = 0.1;
   double endTime = startTime + simTime + 7;
   double totalSimTime = endTime + 11;
-  int nPackets = simTime/interPacketInterval;
+  //int nPackets = simTime/interPacketInterval;
 
   char ues[10];
   sprintf(ues, "%d", numberOfueNodes); 
@@ -295,9 +302,9 @@ main (int argc, char *argv[])
     std::cout << "Band " << u + 1 << ": " << bands[u] << std::endl;
   }
 
-  NodeContainer trafficNode;
+  /*NodeContainer trafficNode;
   trafficNode.Create(1);
-  ueNodes.Add(trafficNode);
+  ueNodes.Add(trafficNode);*/
 
   //sprintf(comment, "%d", numberOfueNodes); 
 
@@ -321,9 +328,10 @@ main (int argc, char *argv[])
   std::cout << "Number of UEs: " << ueNodes.GetN() << std::endl;
 
   // Install Mobility Model
-  int v[numberOfueNodes][3] = {{0}};
+  double v[numberOfueNodes][3] = {{0}};
   Ptr<ListPositionAllocator> positionAlloc = CreateObject<ListPositionAllocator> ();
-  int x_c, y_c, x, y, z;
+  int x_c, y_c, x, y;
+  double z;
   for (uint16_t i = 0; i < numberOfueNodes; i++)
     {
       bool redo = true;
@@ -335,10 +343,10 @@ main (int argc, char *argv[])
         int theta = (rand() % 628 +1) / 100;
         x = static_cast<int>(rho * cos(theta));
         y = static_cast<int>(rho * sin(theta));
-        int x_building = x/20;
-        int y_building = y/50;
-        x = x_building*20 + ((x%20) % 16) +1;
-        y = (y_building*50 + ((x%50) % 44) +1);
+        //int x_building = x/20;
+        //int y_building = y/50;
+        //x = x_building*20 + ((x%20) % 16) +1;
+        //y = (y_building*50 + ((x%50) % 44) +1);
         z = height;
         for (int j = 0; j < numberOfueNodes; j++) {
           if (x == v[j][0] && y == v[j][1] && z == v[j][2])
@@ -364,11 +372,11 @@ main (int argc, char *argv[])
   positionAlloc = CreateObject<ListPositionAllocator> ();
   positionAlloc->Add (Vector(squareWidth/4, squareWidth/2, 1));
   mobility.SetPositionAllocator(positionAlloc);
-  mobility.Install(trafficNode);
+  //mobility.Install(trafficNode);
   //BuildingsHlper::Install(trafficNode);
 
   positionAlloc = CreateObject<ListPositionAllocator> ();
-  positionAlloc->Add (Vector(squareWidth/2, squareWidth/2, 20));
+  positionAlloc->Add (Vector(squareWidth/2, squareWidth/2, 25));
   mobility.SetPositionAllocator(positionAlloc);
   mobility.Install(enbNodes);
   //BuildingsHelper::Install(enbNodes);
@@ -437,14 +445,14 @@ main (int argc, char *argv[])
   serverApps.Stop (Seconds (endTime));
 
   // Install and start traffic server on traffic UE
-  Ptr<Node> node = trafficNode.Get(0);
+  /*Ptr<Node> node = trafficNode.Get(0);
   Ptr<NetDevice> trafficDevice = node->GetDevice(0);
   int32_t interface = node->GetObject<Ipv4>()->GetInterfaceForDevice(trafficDevice);
   Ipv4Address address = node->GetObject<Ipv4>()->GetAddress(interface, 0).GetLocal();
   UdpServerHelper udpTrafficServer(10);
   ApplicationContainer trafficServerApps = udpTrafficServer.Install(node);
   trafficServerApps.Start (Seconds (startTime));
-  trafficServerApps.Stop (Seconds (endTime));
+  trafficServerApps.Stop (Seconds (endTime));*/
 
   int j;
   //uint64_t e2eLatVect[numberOfueNodes][nPackets];
@@ -508,17 +516,17 @@ main (int argc, char *argv[])
     }
   }
 
-  nrHelper->ActivateDedicatedEpsBearer (trafficDevice, lowLatencyBearerUL, ulTft);
-  nrHelper->ActivateDedicatedEpsBearer (trafficDevice, lowLatencyBearerDL, dlTft);
+  //nrHelper->ActivateDedicatedEpsBearer (trafficDevice, lowLatencyBearerUL, ulTft);
+  //nrHelper->ActivateDedicatedEpsBearer (trafficDevice, lowLatencyBearerDL, dlTft);
 
   // Start traffic client on traffic remote host
-  UdpClientHelper udpTrafficClient(address, 10);
+  /*UdpClientHelper udpTrafficClient(address, 10);
   udpTrafficClient.SetAttribute("MaxPackets", UintegerValue(10000000));
   udpTrafficClient.SetAttribute("PacketSize", UintegerValue(14000)); // 14x10^3 bytes
   udpTrafficClient.SetAttribute ("Interval", TimeValue (Seconds (interPacketInterval)));
   ApplicationContainer trafficClientApps = udpTrafficClient.Install(remoteHost);
   trafficClientApps.Start (Seconds (startTime));
-  trafficClientApps.Stop (Seconds (endTime));
+  trafficClientApps.Stop (Seconds (endTime));*/
 
   // enable the traces provided by the nr module
   nrHelper->EnableTraces();
@@ -698,7 +706,7 @@ main (int argc, char *argv[])
 
   // GNU parameters
   
-  std::string fileNamePrefix          = "r" + std::to_string(radius) + "-h" + std::to_string(height) + "-num" + std::to_string(numerology) + "-s" + std::to_string(seed) + "-t" + std::to_string(static_cast<int>(simTime)) + "-" + comment;
+  std::string fileNamePrefix          = "r" + std::to_string(radius) + "-num" + std::to_string(numerology) + "-s" + std::to_string(seed) + "-t" + std::to_string(static_cast<int>(simTime)) + "-" + comment;
   std::string fileNameWithNoExtension = fileNamePrefix + "_UlLatencyHistogram";
   std::string graphicsFileName        = "../images/" + fileNameWithNoExtension + ".png";
   std::string plotFileName            = folder + "data/" + fileNameWithNoExtension + ".plt";
@@ -738,8 +746,8 @@ main (int argc, char *argv[])
 
   Histogram e2eLatHist = Histogram(1);
   Histogram e2ePktHist = Histogram(1);
-  uint32_t val;
   uint32_t timeStamp;
+  uint32_t val;
   int count = 0;
   int receivedPackets = 0;
   latePackets = 0;
@@ -935,6 +943,12 @@ main (int argc, char *argv[])
   // Close the plot file.
   //plotFile5.close ();
 
+  int i;
+  for(i = 0; i < numberOfueNodes; i++)  {
+    free(e2eLatVect[i][0]);
+    free(e2eLatVect[i][1]);
+  }
+
   std::cout << "Seed: " << seed << std::endl;
   std::cout << "Delivered Packets: " << deliveredPckPerc << "%" << std::endl;
   std::cout << "Late Packets (> 20ms): " << latePckPerc << "%" << std::endl;
@@ -945,9 +959,8 @@ main (int argc, char *argv[])
   //std::cout << "Lost Packets: " << lostPackets << std::endl;
   std::cout << "Total Packets: " << totalPackets << std::endl;
 
-
-  Simulator::Destroy ();
+  Simulator::Destroy();
   return 0;
-}
 
+}
 

@@ -4,5 +4,6 @@
 !subdir/
 !scratch-simulator.cc
 !4G-Scenario1.cc
-!5G-Scenario1.cc
 !4G-Scenario2.cc
+!5G-Scenario1.cc
+!5G-Scenario2.cc

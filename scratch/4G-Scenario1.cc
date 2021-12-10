@@ -71,8 +71,9 @@ main (int argc, char *argv[])
   double simTime = 2; // in seconds
   uint32_t squareWidth = 1000;
   uint32_t radius = 500;
-  uint32_t height = 5;
+  double height = 1.5;
   double interPacketInterval = 1.0/1500.0;
+  int nPackets;
   uint32_t packetSize = 280;
   uint16_t thrsLatency = 20*1000;
   std::string comment = "";
@@ -102,14 +103,20 @@ main (int argc, char *argv[])
                 "Seed of the random function use to place the UEs",
                 seed);
   cmd.AddValue("simTime",
-                "Total duration of the simulation [s])",
+                "Total duration of the simulation [s]",
                 simTime);
+  cmd.AddValue("interPacketInterval",
+                "Inter packet interval [s]",
+                interPacketInterval);
+  cmd.AddValue("nPackets",
+                "Number of packets transmitted by each UE",
+                nPackets);
   cmd.Parse(argc, argv);
 
   double startTime = 0.1;
   double endTime = startTime + simTime + 7;
   double totalSimTime = endTime + 11;
-  int nPackets = simTime/interPacketInterval;
+  //int nPackets = simTime/interPacketInterval;
 
   char ues[10];
   sprintf(ues, "%d", numberOfueNodes); 
@@ -127,7 +134,7 @@ main (int argc, char *argv[])
   lteHelper->SetEpcHelper (epcHelper);
 
   // Set propagation model
-  lteHelper->SetAttribute ("PathlossModel", StringValue ("ns3::ThreeGppRmaPropagationLossModel"));
+  lteHelper->SetAttribute ("PathlossModel", StringValue ("ns3::ThreeGppUmaPropagationLossModel"));
   lteHelper->SetPathlossModelAttribute ("ShadowingEnabled", BooleanValue (false));
   //lteHelper->SetAttribute ("PathlossModel", StringValue ("ns3::HybridBuildingsPropagationLossModel"));
   //lteHelper->SetPathlossModelAttribute("Los2NlosThr", DoubleValue(800));
@@ -200,9 +207,10 @@ main (int argc, char *argv[])
   std::cout << "Number of UEs: " << ueNodes.GetN() << std::endl;
 
   // Install Mobility Model
-  int v[numberOfueNodes][3] = {{0}};
+  double v[numberOfueNodes][3] = {{0}};
   Ptr<ListPositionAllocator> positionAlloc = CreateObject<ListPositionAllocator> ();
-  int x_c, y_c, x, y, z;
+  int x_c, y_c, x, y;
+  double z;
   for (uint16_t i = 0; i < numberOfueNodes; i++)
   {
       bool redo = true;
@@ -214,10 +222,10 @@ main (int argc, char *argv[])
         int theta = (rand() % 628 +1) / 100;
         x = static_cast<int>(rho * cos(theta));
         y = static_cast<int>(rho * sin(theta));
-        int x_building = x/20;
-        int y_building = y/50;
-        x = x_building*20 + ((x%20) % 16) +1;
-        y = (y_building*50 + ((x%50) % 44) +1);
+        //int x_building = x/20;
+        //int y_building = y/50;
+        //x = x_building*20 + ((x%20) % 16) +1;
+        //y = (y_building*50 + ((x%50) % 44) +1);
         z = height;
         for (int j = 0; j < numberOfueNodes; j++) {
           if (x == v[j][0] && y == v[j][1] && z == v[j][2])
@@ -247,7 +255,7 @@ main (int argc, char *argv[])
   //BuildingsHlper::Install(trafficNode);
 
   positionAlloc = CreateObject<ListPositionAllocator> ();
-  positionAlloc->Add (Vector(squareWidth/2, squareWidth/2, 20));
+  positionAlloc->Add (Vector(squareWidth/2, squareWidth/2, 25));
   mobility.SetPositionAllocator(positionAlloc);
   mobility.Install(enbNodes);
   //BuildingsHelper::Install(enbNodes);
@@ -525,7 +533,7 @@ main (int argc, char *argv[])
   std::string folder = root + "/" + ues + " UEs/";
 
   // GNU parameters
-  std::string fileNamePrefix          = "r" + std::to_string(radius) + "-h" + std::to_string(height) + "-s" + std::to_string(seed) + "-t" + std::to_string(static_cast<int>(simTime)) + "-" + comment;
+  std::string fileNamePrefix          = "r" + std::to_string(radius) + "-s" + std::to_string(seed) + "-t" + std::to_string(static_cast<int>(simTime)) + "-" + comment;
   std::string fileNameWithNoExtension = fileNamePrefix + "_UlLatencyHistogram";
   std::string graphicsFileName        = "../images/" + fileNameWithNoExtension + ".png";
   std::string plotFileName            = folder + "data/" + fileNameWithNoExtension + ".plt";
@@ -573,8 +581,8 @@ main (int argc, char *argv[])
   lostPackets = 0;
   for(int i = 0; i < numberOfueNodes; i ++) {
     for(int j = 0; j < nPackets; j++) {
-      timeStamp = e2eLatVect[i][0][j];
-      val = e2eLatVect[i][1][j];
+      timeStamp = static_cast<double>(e2eLatVect[i][0][j]);
+      val = static_cast<double>(e2eLatVect[i][1][j]);
       if(val != 0)  {
         receivedPackets++;
         e2eLatHist.AddValue(val);
@@ -763,6 +771,12 @@ main (int argc, char *argv[])
 
   // Close the plot file.
   //plotFile5.close ();
+
+  int i;
+  for(i = 0; i < numberOfueNodes; i++)  {
+    free(e2eLatVect[i][0]);
+    free(e2eLatVect[i][1]);
+  }
 
   std::cout << "Seed: " << seed << std::endl;
   std::cout << "Delivered Packets: " << deliveredPckPerc << "%" << std::endl;

@@ -1,43 +1,43 @@
 /* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
 /*
- * Copyright (c) 2011 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
+ *   Copyright (c) 2019 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation;
+ *   This program is free software; you can redistribute it and/or modify
+ *   it under the terms of the GNU General Public License version 2 as
+ *   published by the Free Software Foundation;
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ *   This program is distributed in the hope that it will be useful,
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *   GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   You should have received a copy of the GNU General Public License
+ *   along with this program; if not, write to the Free Software
+ *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
- * Author: Jaume Nin <jaume.nin@cttc.cat>
  */
-
 
 /**
- * Sample simulation script for LTE+EPC. It instantiates several eNodeB,
- * attaches one UE per eNodeB starts a flow for each UE to  and from a remote host.
- * It also  starts yet another flow between each UE pair.
+ * \file cttc-3gpp-channel-example.cc
+ * \ingroup examples
+ * \brief Channel Example
+ *
+ * This example describes how to setup a simulation using the 3GPP channel model
+ * from TR 38.900. Topology consists by default of 2 UEs and 2 gNbs, and can be
+ * configured to be either mobile or static scenario.
+ *
+ * The output of this example are default NR trace files that can be found in
+ * the root ns-3 project folder.
  */
 
-
-
-
-
-
-#include "ns3/lte-helper.h"
-#include "ns3/epc-helper.h"
+#include "ns3/nr-helper.h"
+#include "ns3/nr-point-to-point-epc-helper.h"
 #include "ns3/core-module.h"
 #include "ns3/network-module.h"
 #include "ns3/ipv4-global-routing-helper.h"
 #include "ns3/internet-module.h"
 #include "ns3/mobility-module.h"
-#include "ns3/lte-module.h"
+#include "ns3/nr-module.h"
 #include "ns3/applications-module.h"
 #include "ns3/point-to-point-helper.h"
 #include "ns3/config-store.h"
@@ -49,20 +49,17 @@
 #include <ns3/mobility-building-info.h>
 #include <ns3/hybrid-buildings-propagation-loss-model.h>
 #include <ns3/building.h>
-
-
-
-
+#include <ns3/buildings-helper.h>
+#include "ns3/log.h"
+#include "ns3/network-module.h"
+#include "ns3/nr-mac-scheduler-tdma-rr.h"
 #include <stdlib.h>
 #include <iostream>
-#include <cmath>
-//#include "ns3/gtk-config-store.h"
 
 using namespace ns3;
 
-NS_LOG_COMPONENT_DEFINE ("EpcFirstExample");
 
-int
+int 
 main (int argc, char *argv[])
 {
 
@@ -82,11 +79,14 @@ main (int argc, char *argv[])
   int seed = 0;
   int cell2cellDistance = 50000;
 
-  Config::SetDefault ("ns3::LteEnbNetDevice::DlEarfcn", UintegerValue (100));   // 2120MHz Downlink
-  Config::SetDefault ("ns3::LteEnbNetDevice::UlEarfcn", UintegerValue (18100)); // 1930MHz Uplink
-
-  Config::SetDefault ("ns3::LteEnbNetDevice::UlBandwidth", UintegerValue (100)); // 20MHz UL Band
-  Config::SetDefault ("ns3::LteEnbNetDevice::DlBandwidth", UintegerValue (100)); // 20MHz DL Band
+  double frequency = 2035e6; // central frequency
+  //double bandwidth = 40e6; //bandwidth (UL+DL)
+  double bwpBandwidth = 20e6; //bandwidth of the UL and the DL
+  double spacingBandwidth = 170e6; // bandwidth of the bandwidth part used to separate the UL from the DL
+  int numerology = 2;
+  
+  
+  enum BandwidthPartInfo::Scenario scenarioEnum = BandwidthPartInfo::UMa; //UMi_Buildings
 
   CommandLine cmd;
   cmd.AddValue("numberOfenbNodes",
@@ -116,43 +116,162 @@ main (int argc, char *argv[])
   cmd.AddValue("nPackets",
                 "Number of packets transmitted by each UE",
                 nPackets);
-  cmd.Parse(argc, argv);
+  cmd.AddValue("numerology",
+                "Value defining the subcarrier spaceing and symbol lenght",
+                numerology);
+  cmd.Parse (argc, argv);
+
   //int nPackets = simTime/interPacketInterval;
+  //int nPackets = (4500000/60)/numberOfueNodes;
+  //simTime = nPackets*interPacketInterval;
   double startTime = 0.1;
   double endTime = startTime + simTime + 7;
   double totalSimTime = endTime + 11;
 
   char ues[10];
   sprintf(ues, "%d", numberOfueNodes); 
-  
+
   numberOfBands = numberOfueNodes/2;
   uint16_t bands[numberOfBands];
-  
+
   srand(seed);
 
   Time::SetResolution (Time::NS);
 
-  Ptr<LteHelper> lteHelper = CreateObject<LteHelper> ();
+  /*
+   * Default values for the simulation. We are progressively removing all
+   * the instances of SetDefault, but we need it for legacy code (LTE)
+   */
+  Config::SetDefault ("ns3::LteRlcUm::MaxTxBufferSize", UintegerValue(999999999));
 
-  Ptr<PointToPointEpcHelper>  epcHelper = CreateObject<PointToPointEpcHelper> ();
-  lteHelper->SetEpcHelper (epcHelper);
+  /*
+   * Create NR simulation helpers
+   */
+  Ptr<NrHelper> nrHelper = CreateObject<NrHelper> ();
 
-  // Set propagation model
-  lteHelper->SetAttribute ("PathlossModel", StringValue ("ns3::ThreeGppUmaPropagationLossModel"));
-  lteHelper->SetPathlossModelAttribute ("ShadowingEnabled", BooleanValue (true));
-  //lteHelper->SetAttribute ("PathlossModel", StringValue ("ns3::HybridBuildingsPropagationLossModel"));
-  //lteHelper->SetPathlossModelAttribute("Los2NlosThr", DoubleValue(800));
-  //lteHelper->SetAttribute ("PathlossModel", StringValue ("ns3::FriisPropagationLossModel"));
+  Ptr<NrPointToPointEpcHelper> epcHelper = CreateObject<NrPointToPointEpcHelper> ();
+  nrHelper->SetEpcHelper (epcHelper);
 
-  /*lteHelper->SetFadingModel("ns3::TraceFadingLossModel");
-  lteHelper->SetFadingModelAttribute ("TraceFilename", StringValue ("src/lte/model/fading-traces/fading_trace_EPA_3kmph.fad"));
-  lteHelper->SetFadingModelAttribute ("TraceLength", TimeValue (Seconds (10.0)));
-  lteHelper->SetFadingModelAttribute ("SamplesNum", UintegerValue (10000));
-  lteHelper->SetFadingModelAttribute ("WindowSize", TimeValue (Seconds (0.5)));
-  lteHelper->SetFadingModelAttribute ("RbNum", UintegerValue (100));*/
+  Ptr<IdealBeamformingHelper> idealBeamformingHelper = CreateObject <IdealBeamformingHelper> ();
+  nrHelper->SetIdealBeamformingHelper (idealBeamformingHelper);
+
+  /*
+   * Spectrum configuration. We create a single operational band and configure the scenario.
+   */
+  BandwidthPartInfoPtrVector allBwps;
+  CcBwpCreator ccBwpCreator;
+
+  //OperationBandInfo band;
+  
+  const uint8_t numCcPerBand = 1;  // in this example we have a single band, and that band is composed of a single component carrier
+
+  /* Create the configuration for the CcBwpHelper. SimpleOperationBandConf creates
+   * a single BWP per CC and a single BWP in CC.
+   *
+   * Hence, the configured spectrum is:
+   *
+   * |---------------------------------Band--------------------------------|
+   * |----------------------------------CC---------------------------------|
+   * |---------------BWP0---------------|---------------BWP1---------------|
+   */
+  CcBwpCreator::SimpleOperationBandConf bandConf (frequency, bwpBandwidth, numCcPerBand, scenarioEnum);
+  bandConf.m_numBwp = 2; // Set the number of Bandwidth Parts to 2
+  OperationBandInfo band = ccBwpCreator.CreateOperationBandContiguousCc (bandConf);
+
+  //For the case of manual configuration of CCs and BWPs
+  std::unique_ptr<ComponentCarrierInfo> cc0 (new ComponentCarrierInfo ());
+  std::unique_ptr<BandwidthPartInfo> bwp0 (new BandwidthPartInfo ());
+  std::unique_ptr<BandwidthPartInfo> bwp1 (new BandwidthPartInfo ());
+  std::unique_ptr<BandwidthPartInfo> bwp2 (new BandwidthPartInfo ());
+
+  std::cout << bwpBandwidth << std::endl;
+  std::cout << spacingBandwidth << std::endl;
+  std::cout << 2*bwpBandwidth + spacingBandwidth << std::endl;
+
+  band.m_centralFrequency  = frequency;
+  band.m_channelBandwidth = 2*bwpBandwidth + spacingBandwidth;
+  band.m_lowerFrequency = band.m_centralFrequency - band.m_channelBandwidth / 2;
+  band.m_higherFrequency = band.m_centralFrequency + band.m_channelBandwidth / 2;
+  uint8_t bwpCount = 0;
+
+  // Component Carrier 0
+  cc0->m_ccId = 0;
+  cc0->m_centralFrequency = frequency;
+  cc0->m_channelBandwidth = 2*bwpBandwidth + spacingBandwidth;
+  cc0->m_lowerFrequency = cc0->m_centralFrequency - cc0->m_channelBandwidth / 2;
+  cc0->m_higherFrequency = cc0->m_centralFrequency + cc0->m_channelBandwidth / 2;
+
+  // BWP 0 - DL
+  bwp0->m_bwpId = bwpCount;
+  bwp0->m_centralFrequency = cc0->m_lowerFrequency + bwpBandwidth/2;
+  bwp0->m_channelBandwidth = bwpBandwidth;
+  bwp0->m_lowerFrequency = bwp0->m_centralFrequency - bwp0->m_channelBandwidth / 2;
+  bwp0->m_higherFrequency = bwp0->m_centralFrequency + bwp0->m_channelBandwidth / 2;
+
+  cc0->AddBwp (std::move(bwp0));
+  ++bwpCount;
+
+  // BWP 1 - Spacing
+  bwp1->m_bwpId = bwpCount;
+  bwp1->m_centralFrequency = cc0->m_lowerFrequency + bwpBandwidth + spacingBandwidth/2;
+  bwp1->m_channelBandwidth = spacingBandwidth;
+  bwp1->m_lowerFrequency = bwp1->m_centralFrequency - bwp1->m_channelBandwidth / 2;
+  bwp1->m_higherFrequency = bwp1->m_centralFrequency + bwp1->m_channelBandwidth / 2;
+
+  cc0->AddBwp (std::move(bwp1));
+  ++bwpCount;
+
+  // BWP 2 - UL
+  bwp2->m_bwpId = bwpCount;
+  bwp2->m_centralFrequency = cc0->m_higherFrequency - spacingBandwidth/2;
+  bwp2->m_channelBandwidth = bwpBandwidth;
+  bwp2->m_lowerFrequency = bwp2->m_centralFrequency - bwp2->m_channelBandwidth / 2;
+  bwp2->m_higherFrequency = bwp2->m_centralFrequency + bwp2->m_channelBandwidth / 2;
+
+  cc0->AddBwp (std::move(bwp2));
+  ++bwpCount;
+
+  band.AddCc (std::move(cc0));
+
+  //Config::SetDefault ("ns3::ThreeGppChannelModel::UpdatePeriod",TimeValue (MilliSeconds(0)));
+  //nrHelper->SetChannelConditionModelAttribute ("UpdatePeriod", TimeValue (MilliSeconds (0)));
+  nrHelper->SetPathlossAttribute ("ShadowingEnabled", BooleanValue (true));
+
+  //Initialize channel and pathloss, plus other things inside band.
+  nrHelper->InitializeOperationBand (&band);
+  allBwps = CcBwpCreator::GetAllBwps ({band});
+
+  // Configure ideal beamforming method
+  idealBeamformingHelper->SetAttribute ("IdealBeamformingMethod", TypeIdValue (DirectPathBeamforming::GetTypeId ()));
+
+  epcHelper->SetAttribute ("S1uLinkDelay", TimeValue (MilliSeconds (0)));
+
+  // Configure scheduler
+  nrHelper->SetSchedulerTypeId (NrMacSchedulerTdmaPF::GetTypeId ());
+
+  // Antennas for the UEs
+  nrHelper->SetUeAntennaAttribute ("NumRows", UintegerValue (2));
+  nrHelper->SetUeAntennaAttribute ("NumColumns", UintegerValue (4));
+  nrHelper->SetUeAntennaAttribute ("IsotropicElements", BooleanValue (true));
+
+  // Antennas for the gNbs
+  nrHelper->SetGnbAntennaAttribute ("NumRows", UintegerValue (4));
+  nrHelper->SetGnbAntennaAttribute ("NumColumns", UintegerValue (8));
+  nrHelper->SetGnbAntennaAttribute ("IsotropicElements", BooleanValue (true));
+
+  nrHelper->SetGnbPhyAttribute ("TxPower", DoubleValue (30));
+  nrHelper->SetUePhyAttribute ("TxPower", DoubleValue (10));
+
+  // gNb routing between Bearer and bandwidh part
+  nrHelper->SetGnbBwpManagerAlgorithmAttribute ("GBR_CONV_VOICE", UintegerValue (0));
+  nrHelper->SetGnbBwpManagerAlgorithmAttribute ("GBR_CONV_VIDEO", UintegerValue (2));
+
+  // UE routing between Bearer and bandwidh part
+  nrHelper->SetUeBwpManagerAlgorithmAttribute ("GBR_CONV_VOICE", UintegerValue (0));
+  nrHelper->SetUeBwpManagerAlgorithmAttribute ("GBR_CONV_VIDEO", UintegerValue (2));
 
   Ptr<Node> pgw = epcHelper->GetPgwNode ();
-
+  
   // Create a single RemoteHost
   NodeContainer remoteHostContainer;
   remoteHostContainer.Create (1);
@@ -187,6 +306,12 @@ main (int argc, char *argv[])
     std::cout << "Band " << u + 1 << ": " << bands[u] << std::endl;
   }
 
+  /*NodeContainer trafficNode;
+  trafficNode.Create(1);
+  ueNodes.Add(trafficNode);*/
+
+  //sprintf(comment, "%d", numberOfueNodes); 
+
   /*Ptr<GridBuildingAllocator>  gridBuildingAllocator;
   gridBuildingAllocator = CreateObject<GridBuildingAllocator> ();
   gridBuildingAllocator->SetAttribute ("GridWidth", UintegerValue (50));
@@ -202,7 +327,7 @@ main (int argc, char *argv[])
   gridBuildingAllocator->SetBuildingAttribute ("ExternalWallsType", EnumValue(Building::ConcreteWithWindows));
   gridBuildingAllocator->SetAttribute ("MinX", DoubleValue (0));
   gridBuildingAllocator->SetAttribute ("MinY", DoubleValue (0));
-  BuildingContainer buildings = gridBuildingAllocator->Create (4000);*/
+  BuildingContainer buildings = gridBuildingAllocator->Create (1000);*/
 
   std::cout << "Number of UEs: " << ueNodes.GetN() << std::endl;
 
@@ -219,6 +344,7 @@ main (int argc, char *argv[])
         x_c = squareWidth/2;
         y_c = squareWidth/2;
         int rho = rand() % radius +1;
+        if (rho < 10) rho = 10;
         int theta = (rand() % 628 +1) / 100;
         x = static_cast<int>(rho * cos(theta));
         y = static_cast<int>(rho * sin(theta));
@@ -252,6 +378,12 @@ main (int argc, char *argv[])
   mobility.Install(ueNodes);
   //BuildingsHelper::Install(ueNodes);
 
+  /*positionAlloc = CreateObject<ListPositionAllocator> ();
+  positionAlloc->Add (Vector(squareWidth/4, squareWidth/2, 1));
+  mobility.SetPositionAllocator(positionAlloc);
+  mobility.Install(trafficNode);*/
+  //BuildingsHlper::Install(trafficNode);
+
   positionAlloc = CreateObject<ListPositionAllocator> ();
   for (uint16_t i = 0; i < numberOfenbNodes; i++)
     {
@@ -260,7 +392,7 @@ main (int argc, char *argv[])
   mobility.SetPositionAllocator(positionAlloc);
   mobility.Install(enbNodes);
   //BuildingsHelper::Install(enbNodes);
-
+  
   positionAlloc = CreateObject<ListPositionAllocator> ();
   positionAlloc->Add (Vector(squareWidth/2, squareWidth/2, 10));
   mobility.SetPositionAllocator(positionAlloc);
@@ -271,20 +403,47 @@ main (int argc, char *argv[])
 
   //BuildingsHelper::MakeMobilityModelConsistent ();
 
-  // Install LTE Devices to the nodes
-  NetDeviceContainer enbLteDevs = lteHelper->InstallEnbDevice (enbNodes);
-  NetDeviceContainer ueLteDevs = lteHelper->InstallUeDevice (ueNodes);
-  
+  // install nr net devices
+  NetDeviceContainer enbNetDev = nrHelper->InstallGnbDevice(enbNodes, allBwps);
+  NetDeviceContainer ueNetDev = nrHelper->InstallUeDevice (ueNodes, allBwps);
+
   int i;
   for(i = 0; i < numberOfenbNodes; i++) {
-    Ptr<LteEnbNetDevice> dev = DynamicCast<LteEnbNetDevice> (enbLteDevs.Get(0));
-    dev->GetRrc()->SetSrsPeriodicity(80);
+    // BWP0, FDD-DL
+    nrHelper->GetGnbPhy (enbNetDev.Get (i), 0)->SetAttribute ("Numerology", UintegerValue (numerology));
+    nrHelper->GetGnbPhy (enbNetDev.Get (i), 0)->SetAttribute ("Pattern", StringValue ("DL|DL|DL|DL|DL|DL|DL|DL|DL|DL|"));
+    nrHelper->GetGnbPhy (enbNetDev.Get (i), 0)->SetTxPower (30);
+
+    // BWP1, FDD-UL
+    nrHelper->GetGnbPhy (enbNetDev.Get (i), 2)->SetAttribute ("Numerology", UintegerValue (numerology));
+    nrHelper->GetGnbPhy (enbNetDev.Get (i), 2)->SetAttribute ("Pattern", StringValue ("UL|UL|UL|UL|UL|UL|UL|UL|UL|UL|"));
+    nrHelper->GetGnbPhy (enbNetDev.Get (i), 2)->SetTxPower (0);
+
+    // Link the two FDD BWP:
+    nrHelper->GetBwpManagerGnb (enbNetDev.Get (i))->SetOutputLink (2, 0);
   }
+
+  // Set the UE routing:
+  for (uint32_t i = 0; i < ueNetDev.GetN (); i++)
+    {
+      nrHelper->GetBwpManagerUe (ueNetDev.Get (i))->SetOutputLink (0, 2);
+    }
+
+  // When all the configuration is done, explicitly call UpdateConfig ()
+  for (auto it = enbNetDev.Begin (); it != enbNetDev.End (); ++it)
+    {
+      DynamicCast<NrGnbNetDevice> (*it)->UpdateConfig ();
+    }
+
+  for (auto it = ueNetDev.Begin (); it != ueNetDev.End (); ++it)
+    {
+      DynamicCast<NrUeNetDevice> (*it)->UpdateConfig ();
+    }
 
   // Install the IP stack on the UEs
   internet.Install (ueNodes);
   Ipv4InterfaceContainer ueIpIface;
-  ueIpIface = epcHelper->AssignUeIpv4Address (NetDeviceContainer (ueLteDevs));
+  ueIpIface = epcHelper->AssignUeIpv4Address (NetDeviceContainer (ueNetDev));
 
   // Assign IP address to UEs, and install applications
   for (uint32_t u = 0; u < ueNodes.GetN (); ++u)
@@ -295,10 +454,8 @@ main (int argc, char *argv[])
       ueStaticRouting->SetDefaultRoute (epcHelper->GetUeDefaultGatewayAddress (), 1);
     }
 
-  // Attach one UE per eNodeB
-  lteHelper->AttachToClosestEnb (ueLteDevs, enbLteDevs);
-  // side effect: the default EPS bearer will be activated
-
+  // attach UEs to the closest eNB
+  nrHelper->AttachToClosestEnb (ueNetDev, enbNetDev);
 
   // Install and start applications on UEs and remote host
   UdpForwardServerHelper udpForwardServer(9);
@@ -306,9 +463,18 @@ main (int argc, char *argv[])
   serverApps.Start (Seconds (startTime));
   serverApps.Stop (Seconds (endTime));
 
+  // Install and start traffic server on traffic UE
+  /*Ptr<Node> node = trafficNode.Get(0);
+  Ptr<NetDevice> trafficDevice = node->GetDevice(0);
+  int32_t interface = node->GetObject<Ipv4>()->GetInterfaceForDevice(trafficDevice);
+  Ipv4Address address = node->GetObject<Ipv4>()->GetAddress(interface, 0).GetLocal();
+  UdpServerHelper udpTrafficServer(10);
+  ApplicationContainer trafficServerApps = udpTrafficServer.Install(node);
+  trafficServerApps.Start (Seconds (startTime));
+  trafficServerApps.Stop (Seconds (endTime));*/
 
   int j;
-  //uint16_t e2eLatVect[numberOfueNodes][nPackets] = {{0}};
+  //uint64_t e2eLatVect[numberOfueNodes][nPackets];
   uint64_t *e2eLatVect[numberOfueNodes][2];
   UdpIomustServerHelper udpServer(5);
   for(int i = 0; i < numberOfueNodes; i++)  {
@@ -328,6 +494,19 @@ main (int argc, char *argv[])
     ueServers.Stop(Seconds(endTime));
   }
 
+  EpsBearer lowLatencyBearerUL (EpsBearer::GBR_CONV_VIDEO);
+  EpsBearer lowLatencyBearerDL (EpsBearer::GBR_CONV_VOICE);
+
+  Ptr<EpcTft> ulTft = Create<EpcTft> ();
+  EpcTft::PacketFilter ulpfLowLatency;
+  ulpfLowLatency.direction = EpcTft::UPLINK;
+  ulTft->Add(ulpfLowLatency);
+
+  Ptr<EpcTft> dlTft = Create<EpcTft> ();
+  EpcTft::PacketFilter dlpfLowLatency;
+  dlpfLowLatency.direction = EpcTft::DOWNLINK;
+  dlTft->Add(dlpfLowLatency);
+
   for(uint16_t u = 0; u < numberOfBands; u++) {
     for(uint16_t i = 0; i < bands[u]; i++)  {
       Ptr<Node> node = bandNodes[u].Get(i);
@@ -345,16 +524,31 @@ main (int argc, char *argv[])
         address.Serialize(data);
         data[4] = 5;
         //std::cout << unsigned(data[0]) << "." << unsigned(data[1]) << "." << unsigned(data[2]) << "." << unsigned(data[3]) << ":" << unsigned(data[4]) << std::endl;
-        udpClient.SetFill(clientApps.Get(0), data, 5, packetSize - 5);
+        udpClient.SetFill(clientApps.Get(0), data, 5, packetSize);
         clientApps.Start (Seconds ((rand() % 100 + startTime*100)/100.0));
         clientApps.Stop (Seconds (endTime));
       }
+
+      nrHelper->ActivateDedicatedEpsBearer (device, lowLatencyBearerUL, ulTft);
+      nrHelper->ActivateDedicatedEpsBearer (device, lowLatencyBearerDL, dlTft);
+
     }
   }
 
-  lteHelper->EnableTraces ();
-  // Uncomment to enable PCAP tracing
-  //p2ph.EnablePcapAll("lena-epc-first");
+  //nrHelper->ActivateDedicatedEpsBearer (trafficDevice, lowLatencyBearerUL, ulTft);
+  //nrHelper->ActivateDedicatedEpsBearer (trafficDevice, lowLatencyBearerDL, dlTft);
+
+  // Start traffic client on traffic remote host
+  /*UdpClientHelper udpTrafficClient(address, 10);
+  udpTrafficClient.SetAttribute("MaxPackets", UintegerValue(10000000));
+  udpTrafficClient.SetAttribute("PacketSize", UintegerValue(14000)); // 14x10^3 bytes
+  udpTrafficClient.SetAttribute ("Interval", TimeValue (Seconds (interPacketInterval)));
+  ApplicationContainer trafficClientApps = udpTrafficClient.Install(remoteHost);
+  trafficClientApps.Start (Seconds (startTime));
+  trafficClientApps.Stop (Seconds (endTime));*/
+
+  // enable the traces provided by the nr module
+  nrHelper->EnableTraces();
 
   // Flow monitor
   Ptr<FlowMonitor> flowMonitor;
@@ -366,7 +560,7 @@ main (int argc, char *argv[])
   anim.SetMaxPktsPerTraceFile(5000000);
   anim.SetConstantPosition(remoteHost, squareWidth, squareWidth);
 
-  Ptr<RadioEnvironmentMapHelper> remHelper;
+  Ptr<NrRadioEnvironmentMapHelper> remHelper;
 
   if (generateRem)
     {
@@ -375,7 +569,7 @@ main (int argc, char *argv[])
       outFile.open (filename.c_str (), std::ios_base::out | std::ios_base::trunc);
       if (!outFile.is_open ())
         {
-          NS_LOG_ERROR ("Can't open file " << filename);
+          //NS_LOG_ERROR ("Can't open file " << filename);
           return -1;
         }
       for (NodeList::Iterator it = enbNodes.Begin (); it != enbNodes.End (); ++it)
@@ -401,7 +595,7 @@ main (int argc, char *argv[])
       outFile.open (filename.c_str (), std::ios_base::out | std::ios_base::trunc);
       if (!outFile.is_open ())
         {
-          NS_LOG_ERROR ("Can't open file " << filename);
+          //NS_LOG_ERROR ("Can't open file " << filename);
           return -1;
         }
       for (NodeList::Iterator it = ueNodes.Begin (); it != ueNodes.End (); ++it)
@@ -426,7 +620,7 @@ main (int argc, char *argv[])
       outFile.open (filename.c_str (), std::ios_base::out | std::ios_base::trunc);
       if (!outFile.is_open ())
         {
-          NS_LOG_ERROR ("Can't open file " << filename);
+          //NS_LOG_ERROR ("Can't open file " << filename);
           return -1;
         }
       uint32_t index = 0;
@@ -441,17 +635,32 @@ main (int argc, char *argv[])
                   << std::endl;
         }*/
 
-      remHelper = CreateObject<RadioEnvironmentMapHelper> ();
-      remHelper->SetAttribute ("ChannelPath", StringValue ("/ChannelList/1"));
+      remHelper = CreateObject<NrRadioEnvironmentMapHelper> ();
+      /*remHelper->SetAttribute ("ChannelPath", StringValue ("/ChannelList/1"));
       remHelper->SetAttribute ("OutputFile", StringValue ("lena-mec.rem"));
       remHelper->SetAttribute ("XMin", DoubleValue (0));
       remHelper->SetAttribute ("XMax", DoubleValue (squareWidth));
       remHelper->SetAttribute ("YMin", DoubleValue (0));
-      remHelper->SetAttribute ("YMax", DoubleValue (squareWidth*numberOfenbNodes + squareWidth*2*(numberOfenbNodes - 1)));
+      remHelper->SetAttribute ("YMax", DoubleValue (squareWidth));
       remHelper->SetAttribute ("Z", DoubleValue (1.8));
       remHelper->SetAttribute ("XRes", UintegerValue (500));
       remHelper->SetAttribute ("YRes", UintegerValue (500));
-      remHelper->SetAttribute ("Bandwidth", UintegerValue (100));
+      remHelper->SetAttribute ("Bandwidth", UintegerValue (100));*/
+
+      remHelper->SetMinX (0);
+      remHelper->SetMaxX (squareWidth);
+      remHelper->SetResX (500);
+      remHelper->SetMinY (0);
+      remHelper->SetMaxY (squareWidth);
+      remHelper->SetResY (500);
+      remHelper->SetZ (1.8);
+
+      std::string null = "";
+      std::string simTag = null + "" + ues + "-UEs";
+
+      remHelper->SetSimTag(simTag);
+
+      remHelper->CreateRem (enbNetDev, ueNetDev.Get(0), 0);
 
       /*if (remRbId >= 0)
         {
@@ -459,15 +668,12 @@ main (int argc, char *argv[])
           remHelper->SetAttribute ("RbId", IntegerValue (remRbId));
         }*/
 
-      remHelper->Install ();
+      //remHelper->Install ();
       // simulation will stop right after the REM has been generated
     }
 
   Simulator::Stop(Seconds(totalSimTime));
   Simulator::Run();
-
-  /*GtkConfigStore config;
-  config.ConfigureAttributes();*/
 
   // Print per flow statistics
   flowMonitor->CheckForLostPackets ();
@@ -504,23 +710,25 @@ main (int argc, char *argv[])
   Gnuplot2dDataset dataset;
   totalPackets = deliveredPackets + lostPackets;
   for(uint32_t i = 0; i < cumulativeUlHist.GetNBins(); i++)  {
-    dataset.Add(static_cast<double>(i)  , (static_cast<double>(cumulativeUlHist.GetBinCount(i))/(nPackets*numberOfueNodes))*100);
+    //dataset.Add(static_cast<double>(i)  , (static_cast<double>(cumulativeUlHist.GetBinCount(i))/(nPackets*numberOfueNodes))*100);
+    dataset.Add(static_cast<double>(i)  , (static_cast<double>(cumulativeUlHist.GetBinCount(i))));
   }
   double deliveredPckPerc = (static_cast<double>(deliveredPackets) / (totalPackets)) * 100;
   double latePckPerc = (static_cast<double>(latePackets) / (totalPackets)) * 100;
   double lostPckPerc = (static_cast<double>(lostPackets) / (totalPackets)) * 100;
   double uselessPckPerc = latePckPerc + lostPckPerc;
   
-  flowMonitor->SerializeToXmlFile("4G-Scenario2.xml", true, true);
+  flowMonitor->SerializeToXmlFile("5G-Scenario2.xml", true, true);
 
-  std::string root = "graphs/4G";
+  std::string root = "graphs/5G";
   std::string folder = root + "/" + ues + " UEs/";
 
   // GNU parameters
-  std::string fileNamePrefix          = "eNB" + std::to_string(numberOfenbNodes) + "-r" + std::to_string(radius) + "-s" + std::to_string(seed) + "-t" + std::to_string(static_cast<int>(simTime)) + "-" + comment;
-  std::string fileNameWithNoExtension = "UlLatencyHistogram";
-  std::string graphicsFileName        = fileNameWithNoExtension + ".png";
-  std::string plotFileName            = fileNameWithNoExtension + ".plt";
+  
+  std::string fileNamePrefix          = "gNB" + std::to_string(numberOfenbNodes) + "-r" + std::to_string(radius) + "-num" + std::to_string(numerology) + "-s" + std::to_string(seed) + "-t" + std::to_string(static_cast<int>(simTime)) + "-" + comment;
+  std::string fileNameWithNoExtension = fileNamePrefix + "_UlLatencyHistogram";
+  std::string graphicsFileName        = "../images/" + fileNameWithNoExtension + ".png";
+  std::string plotFileName            = folder + "data/" + fileNameWithNoExtension + ".plt";
   std::string plotTitle               = "Latency Probability Histogram (Uplink)";
   std::string dataTitle               = "Latency";
 
@@ -557,16 +765,16 @@ main (int argc, char *argv[])
 
   Histogram e2eLatHist = Histogram(1);
   Histogram e2ePktHist = Histogram(1);
-  uint32_t timeStamp;
   uint32_t val;
+  uint32_t timeStamp;
   int count = 0;
   int receivedPackets = 0;
   latePackets = 0;
   lostPackets = 0;
   for(int i = 0; i < numberOfueNodes; i ++) {
     for(int j = 0; j < nPackets; j++) {
-      timeStamp = e2eLatVect[i][0][j];
-      val = e2eLatVect[i][1][j];
+      timeStamp = static_cast<double>(e2eLatVect[i][0][j]);
+      val = static_cast<double>(e2eLatVect[i][1][j]);
       if(val != 0)  {
         receivedPackets++;
         e2eLatHist.AddValue(val);
@@ -602,9 +810,9 @@ main (int argc, char *argv[])
   }
 
   // GNU parameters
-  fileNameWithNoExtension = "latencyHistogram";
-  graphicsFileName        = fileNameWithNoExtension + ".png";
-  plotFileName            = fileNameWithNoExtension + ".plt";
+  fileNameWithNoExtension = fileNamePrefix + "_latencyHistogram";
+  graphicsFileName        = "../images/" + fileNameWithNoExtension + ".png";
+  plotFileName            = folder + "data/" + fileNameWithNoExtension + ".plt";
   plotTitle               = "End to End Latency Probability Histogram";
   dataTitle               = "Latency";
 
@@ -641,9 +849,9 @@ main (int argc, char *argv[])
   }
 
   // GNU parameters
-  fileNameWithNoExtension = "packetDropHistogram";
-  graphicsFileName        = fileNameWithNoExtension + ".png";
-  plotFileName            = fileNameWithNoExtension + ".plt";
+  fileNameWithNoExtension = fileNamePrefix + "_packetDropHistogram";
+  graphicsFileName        = "../images/" + fileNameWithNoExtension + ".png";
+  plotFileName            = folder + "data/" + fileNameWithNoExtension + ".plt";
   plotTitle               = "Consecutive Packet Drops Histogram";
   dataTitle               = "Consecutive Drops";
 
@@ -680,9 +888,9 @@ main (int argc, char *argv[])
   }
 
   // GNU parameters
-  fileNameWithNoExtension = "DlLatencyHistogram";
-  graphicsFileName        = fileNameWithNoExtension + ".png";
-  plotFileName            = fileNameWithNoExtension + ".plt";
+  fileNameWithNoExtension = fileNamePrefix + "_DlLatencyHistogram";
+  graphicsFileName        = "../images/" + fileNameWithNoExtension + ".png";
+  plotFileName            = folder + "data/" + fileNameWithNoExtension + ".plt";
   plotTitle               = "Latency Probability Histogram (Downlink)";
   dataTitle               = "Latency";
 
@@ -713,11 +921,53 @@ main (int argc, char *argv[])
   // Close the plot file.
   //plotFile4.close ();
 
+  Gnuplot2dDataset dataset5;
+  double sum = 0;
+  for(uint32_t i = 0; i < e2eLatHist.GetNBins(); i++)  {
+    sum += (static_cast<double>(e2eLatHist.GetBinCount(i)*100)/totalPackets);
+    dataset5.Add(static_cast<double>(i), sum);
+  }
+
+  // GNU parameters
+  fileNameWithNoExtension = fileNamePrefix + "_latencyCumulative";
+  graphicsFileName        = "../images/" + fileNameWithNoExtension + ".png";
+  plotFileName            = folder + "data/" + fileNameWithNoExtension + ".plt";
+  plotTitle               = "End to End Latency Cumulative Distribution";
+  dataTitle               = "Latency";
+
+  // Instantiate the plot and set its title.
+  Gnuplot gnuplot5 (graphicsFileName);
+  gnuplot5.SetTitle (plotTitle);
+
+  // Make the graphics file, which the plot file will be when it
+  // is used with Gnuplot, be a PNG file.
+  gnuplot5.SetTerminal ("png");
+
+  // Set the labels for each axis.
+  gnuplot5.SetLegend ("Latency [ms]", "Probability [%]");
+
+  dataset5.SetTitle (dataTitle);
+  dataset5.SetStyle (Gnuplot2dDataset::LINES);
+  
+  //Gnuplot ...continued
+ 
+  gnuplot5.AddDataset (dataset5);
+
+  // Open the plot file.
+  //std::ofstream plotFile5 (plotFileName.c_str());
+
+  // Write the plot file.
+  //gnuplot5.GenerateOutput (plotFile5);
+
+  // Close the plot file.
+  //plotFile5.close ();
+
   for(i = 0; i < numberOfueNodes; i++)  {
     free(e2eLatVect[i][0]);
     free(e2eLatVect[i][1]);
   }
 
+  std::cout << "Seed: " << seed << std::endl;
   std::cout << "Delivered Packets: " << deliveredPckPerc << "%" << std::endl;
   std::cout << "Late Packets (> 20ms): " << latePckPerc << "%" << std::endl;
   std::cout << "Lost Packets (> 10s): " << lostPckPerc << "%" << std::endl;
