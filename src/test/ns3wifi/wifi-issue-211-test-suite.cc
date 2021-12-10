@@ -124,8 +124,7 @@ Issue211Test::DoRun (void)
   Ptr<ConstantSpeedPropagationDelayModel> delayModel = CreateObject<ConstantSpeedPropagationDelayModel> ();
   spectrumChannel->SetPropagationDelayModel (delayModel);
 
-  SpectrumWifiPhyHelper phy = SpectrumWifiPhyHelper::Default ();
-  phy.SetPcapDataLinkType (WifiPhyHelper::DLT_IEEE802_11_RADIO);
+  SpectrumWifiPhyHelper phy;
   phy.SetChannel (spectrumChannel);
 
   WifiHelper wifi;

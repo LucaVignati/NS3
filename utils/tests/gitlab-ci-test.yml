@@ -12,8 +12,10 @@
     - export CCACHE_BASEDIR=${PWD}
     - export CCACHE_DIR=${PWD}/$CCACHE_BASEDIR_VALUE
     - CXX="ccache $COMPILER" ./waf configure --enable-examples --enable-tests --disable-gtk --disable-python -d $MODE
-    - ./test.py $VALGRIND_FLAG $FULLNESS
+    - ./waf
+    - ./test.py --nowaf $VALGRIND_FLAG $FULLNESS
   cache:
+    key: "$CI_JOB_NAME-$CI_COMMIT_REF_SLUG"
     paths:
       - $CCACHE_BASEDIR_VALUE/
   variables:
@@ -24,13 +26,16 @@
 # Run the test.py script with files compiled in debug mode
 daily-test-debug:
   extends: .base-test
-  image: archlinux/base
+  image: archlinux
   variables:
     COMPILER: g++
     MODE: debug
   only:
     variables:
       - $RELEASE == "daily"
+  tags:
+    - nsnam
+    - linux
   before_script:
     - pacman -Syu --noconfirm
     - pacman -Sy base-devel python ccache gsl libgcrypt gtk3 boost valgrind --noconfirm
@@ -38,7 +43,7 @@ daily-test-debug:
 # Run the test.py script with files compiled in release mode
 daily-test-release:
   extends: .base-test
-  image: archlinux/base
+  image: archlinux
   variables:
     COMPILER: g++
     MODE: release
@@ -52,7 +57,7 @@ daily-test-release:
 # Run the test.py script with files compiled in optimized mode
 daily-test-optimized:
   extends: .base-test
-  image: archlinux/base
+  image: archlinux
   variables:
     COMPILER: g++
     MODE: optimized
@@ -64,10 +69,28 @@ daily-test-optimized:
     - pacman -Sy base-devel python ccache gsl libgcrypt gtk3 boost valgrind --noconfirm
 
 ### Valgrind tests
-# Run the test.py script with files compiled in debug mode
-weekly-test-debug:
+# Run the test.py script with files compiled in optimized mode + valgrind (daily)
+daily-test-optimized-valgrind:
   extends: .base-test
-  image: archlinux/base
+  image: archlinux
+  variables:
+    COMPILER: g++
+    MODE: optimized
+    VALGRIND_FLAG: -g
+  only:
+    variables:
+      - $RELEASE == "daily"
+  tags:
+    - nsnam
+    - linux
+  before_script:
+    - pacman -Syu --noconfirm
+    - pacman -Sy base-devel python ccache gsl libgcrypt gtk3 boost valgrind --noconfirm
+
+# Run the test.py script with files compiled in debug mode
+weekly-test-debug-valgrind:
+  extends: .base-test
+  image: archlinux
   variables:
     COMPILER: g++
     MODE: debug
@@ -83,9 +106,9 @@ weekly-test-debug:
     - pacman -Sy base-devel python ccache gsl libgcrypt gtk3 boost valgrind --noconfirm
 
 # Run the test.py script with files compiled in release mode
-weekly-test-release:
+weekly-test-release-valgrind:
   extends: .base-test
-  image: archlinux/base
+  image: archlinux
   variables:
     COMPILER: g++
     MODE: release
@@ -101,9 +124,9 @@ weekly-test-release:
     - pacman -Sy base-devel python ccache gsl libgcrypt gtk3 boost valgrind --noconfirm
 
 # Run the test.py script with files compiled in optimized mode
-weekly-test-optimized:
+weekly-test-optimized-valgrind:
   extends: .base-test
-  image: archlinux/base
+  image: archlinux
   variables:
     COMPILER: g++
     MODE: optimized
@@ -121,7 +144,7 @@ weekly-test-optimized:
 # Do a check for the TAKES_FOREVER jobs, only in optimized mode
 weekly-test-takes-forever-optimized:
   extends: .base-test
-  image: archlinux/base
+  image: archlinux
   variables:
     COMPILER: g++
     MODE: optimized

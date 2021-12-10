@@ -21,7 +21,7 @@
 #include "ns3/simulator.h"
 #include "ns3/log.h"
 #include "ns3/pointer.h"
-#include "ns3/net-device.h"
+#include "ns3/wifi-net-device.h"
 #include "ns3/node.h"
 #include "ns3/propagation-loss-model.h"
 #include "ns3/propagation-delay-model.h"
@@ -103,7 +103,7 @@ YansWifiChannel::Send (Ptr<YansWifiPhy> sender, Ptr<const WifiPpdu> ppdu, double
           double rxPowerDbm = m_loss->CalcRxPower (txPowerDbm, senderMobility, receiverMobility);
           NS_LOG_DEBUG ("propagation: txPower=" << txPowerDbm << "dbm, rxPower=" << rxPowerDbm << "dbm, " <<
                         "distance=" << senderMobility->GetDistanceFrom (receiverMobility) << "m, delay=" << delay);
-          Ptr<WifiPpdu> copy = Copy (ppdu);
+          Ptr<WifiPpdu> copy = ppdu->Copy ();
           Ptr<NetDevice> dstNetDevice = (*i)->GetDevice ();
           uint32_t dstNode;
           if (dstNetDevice == 0)
@@ -133,7 +133,9 @@ YansWifiChannel::Receive (Ptr<YansWifiPhy> phy, Ptr<WifiPpdu> ppdu, double rxPow
       NS_LOG_INFO ("Received signal too weak to process: " << rxPowerDbm << " dBm");
       return;
     }
-  phy->StartReceivePreamble (ppdu, DbmToW (rxPowerDbm + phy->GetRxGain ()));
+  RxPowerWattPerChannelBand rxPowerW;
+  rxPowerW.insert ({std::make_pair (0, 0), (DbmToW (rxPowerDbm + phy->GetRxGain ()))}); //dummy band for YANS
+  phy->StartReceivePreamble (ppdu, rxPowerW, ppdu->GetTxDuration ());
 }
 
 std::size_t
@@ -145,7 +147,7 @@ YansWifiChannel::GetNDevices (void) const
 Ptr<NetDevice>
 YansWifiChannel::GetDevice (std::size_t i) const
 {
-  return m_phyList[i]->GetDevice ()->GetObject<NetDevice> ();
+  return m_phyList[i]->GetDevice ();
 }
 
 void

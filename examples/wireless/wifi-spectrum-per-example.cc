@@ -101,7 +101,8 @@ void MonitorSniffRx (Ptr<const Packet> packet,
                      uint16_t channelFreqMhz,
                      WifiTxVector txVector,
                      MpduInfo aMpdu,
-                     SignalNoiseDbm signalNoise)
+                     SignalNoiseDbm signalNoise,
+                     uint16_t staId)
 
 {
   g_samples++;
@@ -168,8 +169,8 @@ int main (int argc, char *argv[])
       NodeContainer wifiApNode;
       wifiApNode.Create (1);
 
-      YansWifiPhyHelper phy = YansWifiPhyHelper::Default ();
-      SpectrumWifiPhyHelper spectrumPhy = SpectrumWifiPhyHelper::Default ();
+      YansWifiPhyHelper phy;
+      SpectrumWifiPhyHelper spectrumPhy;
       if (wifiType == "ns3::YansWifiPhy")
         {
           YansWifiChannelHelper channel;
@@ -179,7 +180,6 @@ int main (int argc, char *argv[])
           phy.SetChannel (channel.Create ());
           phy.Set ("TxPowerStart", DoubleValue (1)); // dBm (1.26 mW)
           phy.Set ("TxPowerEnd", DoubleValue (1));
-          phy.Set ("Frequency", UintegerValue (5180));
         }
       else if (wifiType == "ns3::SpectrumWifiPhy")
         {
@@ -196,7 +196,6 @@ int main (int argc, char *argv[])
 
           spectrumPhy.SetChannel (spectrumChannel);
           spectrumPhy.SetErrorRateModel (errorModelType);
-          spectrumPhy.Set ("Frequency", UintegerValue (5180));
           spectrumPhy.Set ("TxPowerStart", DoubleValue (1)); // dBm  (1.26 mW)
           spectrumPhy.Set ("TxPowerEnd", DoubleValue (1));
         }
@@ -385,6 +384,8 @@ int main (int argc, char *argv[])
         {
           mac.SetType ("ns3::StaWifiMac",
                        "Ssid", SsidValue (ssid));
+          phy.Set ("ChannelSettings", StringValue (std::string ("{0, ") + (i <= 15 ? "20" : "40")
+                                                   + ", BAND_5GHZ, 0}"));
           staDevice = wifi.Install (phy, mac, wifiStaNode);
           mac.SetType ("ns3::ApWifiMac",
                        "Ssid", SsidValue (ssid));
@@ -395,6 +396,8 @@ int main (int argc, char *argv[])
         {
           mac.SetType ("ns3::StaWifiMac",
                        "Ssid", SsidValue (ssid));
+          phy.Set ("ChannelSettings", StringValue (std::string ("{0, ") + (i <= 15 ? "20" : "40")
+                                                   + ", BAND_5GHZ, 0}"));
           staDevice = wifi.Install (spectrumPhy, mac, wifiStaNode);
           mac.SetType ("ns3::ApWifiMac",
                        "Ssid", SsidValue (ssid));
@@ -403,22 +406,18 @@ int main (int argc, char *argv[])
 
       if (i <= 7)
         {
-          Config::Set ("/NodeList/*/DeviceList/*/$ns3::WifiNetDevice/Phy/ChannelWidth", UintegerValue (20));
           Config::Set ("/NodeList/*/DeviceList/*/$ns3::WifiNetDevice/HtConfiguration/ShortGuardIntervalSupported", BooleanValue (false));
         }
       else if (i > 7 && i <= 15)
         {
-          Config::Set ("/NodeList/*/DeviceList/*/$ns3::WifiNetDevice/Phy/ChannelWidth", UintegerValue (20));
           Config::Set ("/NodeList/*/DeviceList/*/$ns3::WifiNetDevice/HtConfiguration/ShortGuardIntervalSupported", BooleanValue (true));
         }
       else if (i > 15 && i <= 23)
         {
-          Config::Set ("/NodeList/*/DeviceList/*/$ns3::WifiNetDevice/Phy/ChannelWidth", UintegerValue (40));
           Config::Set ("/NodeList/*/DeviceList/*/$ns3::WifiNetDevice/HtConfiguration/ShortGuardIntervalSupported", BooleanValue (false));
         }
       else
         {
-          Config::Set ("/NodeList/*/DeviceList/*/$ns3::WifiNetDevice/Phy/ChannelWidth", UintegerValue (40));
           Config::Set ("/NodeList/*/DeviceList/*/$ns3::WifiNetDevice/HtConfiguration/ShortGuardIntervalSupported", BooleanValue (true));
         }
 
@@ -493,6 +492,7 @@ int main (int argc, char *argv[])
 
       if (enablePcap)
         {
+          phy.SetPcapDataLinkType (WifiPhyHelper::DLT_IEEE802_11_RADIO);
           std::stringstream ss;
           ss << "wifi-spectrum-per-example-" << i;
           phy.EnablePcap (ss.str (), apDevice);

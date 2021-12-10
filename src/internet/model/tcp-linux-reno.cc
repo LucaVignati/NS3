@@ -77,6 +77,13 @@ TcpLinuxReno::CongestionAvoidance (Ptr<TcpSocketState> tcb, uint32_t segmentsAck
   NS_LOG_FUNCTION (this << tcb << segmentsAcked);
 
   uint32_t w = tcb->m_cWnd / tcb->m_segmentSize;
+
+  // Floor w to 1 if w == 0 
+  if (w == 0)
+    {
+      w = 1;
+    }
+
   NS_LOG_DEBUG ("w in segments " << w << " m_cWndCnt " << m_cWndCnt << " segments acked " << segmentsAcked);
   if (m_cWndCnt >= w)
     {
@@ -130,14 +137,6 @@ TcpLinuxReno::GetSsThresh (Ptr<const TcpSocketState> state,
 
   // In Linux, it is written as:  return max(tp->snd_cwnd >> 1U, 2U);
   return std::max<uint32_t> (2 * state->m_segmentSize, state->m_cWnd / 2);
-}
-
-void
-TcpLinuxReno::ReduceCwnd (Ptr<TcpSocketState> tcb)
-{
-  NS_LOG_FUNCTION (this << tcb);
-
-  tcb->m_cWnd = std::max ( tcb->m_cWnd.Get () / 2, tcb->m_segmentSize);
 }
 
 Ptr<TcpCongestionOps>

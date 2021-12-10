@@ -57,13 +57,6 @@ public:
   void SetForwardCallback (ForwardUpCallback callback);
 
   /**
-   * Set a callback to trigger the next PCF frame.
-   *
-   * \param callback the callback to set
-   */
-  void SetPcfCallback (Callback<void> callback);
-
-  /**
    * Receive a packet.
    *
    * \param mpdu the MPDU
@@ -110,8 +103,8 @@ private:
    * \return a packet if the packet is successfully reassembled (or not a fragment),
    *         0 if we failed to reassemble the packet (e.g. missing fragments/out-of-order).
    */
-  Ptr<Packet> HandleFragments (Ptr<Packet> packet, const WifiMacHeader* hdr,
-                               OriginatorRxStatus *originator);
+  Ptr<const Packet> HandleFragments (Ptr<const Packet> packet, const WifiMacHeader* hdr,
+                                     OriginatorRxStatus *originator);
 
   /**
    * typedef for a map between address and OriginatorRxStatus
@@ -133,8 +126,6 @@ private:
   Originators m_originatorStatus; ///< originator status
   QosOriginators m_qosOriginatorStatus; ///< QOS originator status
   ForwardUpCallback m_callback; ///< forward up callback
-
-  Callback<void> m_pcfCallback; //!< PCF callback
 };
 
 } //namespace ns3

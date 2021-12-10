@@ -23,12 +23,12 @@ the impact of these changes on users by documenting these changes in a
 single place (this file), and not by providing a temporary or permanent
 backward-compatibility software layer.  </p>
 <p>
-A related file is the RELEASE_NOTES file in the top level directory.
-This file complements RELEASE_NOTES by focusing on API and behavioral
+A related file is the RELEASE_NOTES.md file in the top level directory.
+This file complements RELEASE_NOTES.md by focusing on API and behavioral
 changes that users upgrading from one release to the next may encounter.
-RELEASE_NOTES attempts to comprehensively list all of the changes
-that were made.  There is generally some overlap in the information 
-contained in RELEASE_NOTES and this file.  </p>
+RELEASE_NOTES.md attempts to comprehensively list all of the changes
+that were made.  There is generally some overlap in the information
+contained in RELEASE_NOTES.md and this file.  </p>
 <p>
 The goal is that users who encounter a problem when trying to use older
 code with newer code should be able to consult this file to find
@@ -41,7 +41,7 @@ directly out of the development tree, may find that simulation output
 changes even when the compilation doesn't break, such as when a
 simulator default value is changed.  Therefore, it is good practice for
 _anyone_ using code across multiple ns-3 releases to consult this file,
-as well as the RELEASE_NOTES, to understand what has changed over time.
+as well as the RELEASE_NOTES.md, to understand what has changed over time.
 </p>
 <p>
 This file is a best-effort approach to solving this issue; we will do
@@ -51,7 +51,7 @@ to this file based on your experience, please contribute a patch or drop
 us a note on ns-developers mailing list.</p>
 
 <hr>
-<h1>Changes from ns-3.32 to ns-3.33</h1>
+<h1>Changes from ns-3.35 to ns-3.36</h1>
 <h2>New API:</h2>
 <ul>
 <li></li>
@@ -66,7 +66,131 @@ us a note on ns-developers mailing list.</p>
 </ul>
 <h2>Changed behavior:</h2>
 <ul>
-<li></li>
+<li>Wi-Fi: EDCAFs (QosTxop objects) are no longer installed on non-QoS STAs and DCF (Txop object) is no longer installed on QoS STAs.</li>
+<li>Wi-Fi: Management frames (Probe Request/Response, Association Request/Response) are sent by QoS STAs according to the 802.11 specs.</li>
+<li>The <b>Frequency</b>, <b>ChannelNumber</b>, <b>ChannelWidth</b> and <b>Primary20MHzIndex</b>
+attributes of <b>WifiPhy</b> can now only be used to get the corresponding values. Channel settings
+can be now configured through the <b>ChannelSettings</b> attribute. See the wifi model documentation
+for information on how to set this new attribute.</li>
+</ul>
+
+<hr>
+<h1>Changes from ns-3.34 to ns-3.35</h1>
+<h2>New API:</h2>
+<ul>
+<li>In class <b>Ipv6Header</b>, new functions SetSource (), SetDestination (), GetSource () and GetDestination () are added, consistent with <b>Ipv4Header</b>. The existing functions had "Address" suffix in each of the function names, and are are deprecated now.</li>
+<li>In class <b>Ipv4InterfaceAddress</b>, new functions SetAddress () and GetAddress () are added, corresponding to SetLocal () and GetLocal () respectively. This is done to keep consistency with <b>Ipv4InterfaceAddress</b>.</li>
+<li>With the new support for IPv6 Nix-Vector routing, we have all the new APIs corresponding to IPv4 Nix-Vector routing. Specific to the user, there is an Ipv6NixVectorHelper class which can be set in the InternetStackHelper, and works similar to Ipv4NixVectorHelper.</li>
+<li>In class <b>Ipv4InterfaceAddress</b>, a new function IsInSameSubnet () is added to check if both the IPv4 addresses are in the same subnet. Also, it is consistent with <b>Ipv6InterfaceAddress::IsInSameSubnet ()</b>.</li>
+<li>In class <b>ConfigStore</b>, a new Attribue <b>SaveDeprecated</b> allows to not save DEPRECATED Attributes. The default value is <b>false</b> (save DEPRECATED Attributes).</li>
+<li>In class <b>TracedCallback</b>, a new function <b>IsEmpty</b> allows to know if the TracedCallback will call any callback.</li>
+<li>A new specialization of std::hash for Ptr allows one to use Ptrs as keys in unordered_map and unordered_set containers.</li>
+<li>A new <b>GroupMobilityHelper</b> mobility helper has been added to ease the configuration of group mobility (a form of hierarchical mobility in which multiple child mobility models move with reference to an underlying parent mobility model).  New example programs and animation scripts are also added to both the buildings and mobility modules.</li>
+</ul>
+<h2>Changes to existing API:</h2>
+<ul>
+<li>In class <b>Ipv6Header</b>, the functions SetSourceAddress (), SetDestinationAddress (), GetSourceAddress () and GetDestinationAddress () are deprecated. New corresponding functions are added by removing the "Address" suffix. This change is made for having consistency with <b>Ipv4Header</b>.</li>
+<li><b>ipv4-nix-vector-helper.h</b> and <b>ipv4-nix-vector-routing.h</b> have been deprecated in favour of <b>nix-vector-helper.h</b> and <b>nix-vector-routing.h</b> respectively.</li>
+</ul>
+<h2>Changes to build system:</h2>
+<ul>
+<li>The default C++ standard is now C++17.</li>
+<li>The minimum compiler versions have been raised to g++-7 and clang-10 (Linux) and Xcode 11 (macOS).</li>
+</ul>
+<h2>Changed behavior:</h2>
+<ul>
+<li>Nix-Vector routing supports topologies with multiple WiFi networks using the same WiFi channel object.</li>
+<li>ConfigStore no longer saves OBSOLETE attributes.</li>
+<li>The <b>Ipv4L3Protocol</b> Duplicate detection now accounts for transmitted packets, so a transmitting multicast node will not forward its own packets.</li>
+<li>Wi-Fi: A-MSDU aggregation now implies that constituent MSDUs are immediately dequeued
+from the EDCA queue and replaced by an MPDU containing the A-MSDU. Thus, aggregating N
+MSDUs triggers N dequeue operations and 1 enqueue operation on the EDCA queue.</li>
+<li>Wi-Fi: MPDUs being passed to the PHY layer for transmission are not dequeued, but
+are kept in the EDCA queue until they are acknowledged or discarded. Consequently, the
+BlockAckManager retransmit queue has been removed.</li>
+</ul>
+
+<hr>
+<h1>Changes from ns-3.33 to ns-3.34</h1>
+<h2>New features and API:</h2>
+<ul>
+<li>Support for Wi-Fi <b>802.11ax downlink and uplink OFDMA</b>, including multi-user OFDMA and a <b>round-robin multi-user scheduler</b>.</li>
+<li><b>FqCobalt</b> queue disc with L4S features and set associative hash.</li>
+<li><b>FqPIE</b> queue disc with L4S mode</li>
+<li><b>ThompsonSamplingWifiManager</b> Wi-Fi rate control algorithm.</li>
+<li>New <b>PhasedArrayModel</b>, providing a flexible interface for modeling a number of Phase Antenna Array (PAA) models.</li>
+<li>Added the ability to configure the <b>Wi-Fi primary 20 MHz channel</b> for 802.11 devices operating on channels of width greater than 20 MHz.</li>
+<li>A <b>TCP BBRv1</b> congestion control model.</li>
+<li><b>Improved support for bit fields</b> in header serialization/deserialization.</li>
+<li>Support for <b>IPv6 stateless address auto-configuration (SLAAC)</b>.</li>
+</ul>
+<h2>Changes to existing API:</h2>
+<ul>
+<li>The <b>WifiAckPolicySelector</b> class has been replaced by the <b>WifiAckManager</b> class. Correspondingly, the ConstantWifiAckPolicySelector has been replaced by the WifiDefaultAckManager class. A new WifiProtectionManager abstract base class and WifiDefaultProtectionManager concrete class have been added to implement different protection policies.</li>
+<li>The class <b>ThreeGppAntennaArrayModel</b> has been replaced by <b>UniformPlanarArray</b>, extending the PhasedArrayModel interface.</li>
+<li>The <b>Angles struct</b> is now a class, with robust setters and getters (public struct variables phi and theta are now private class variables m_azimuth and m_inclination), overloaded operator&lt;&lt; and operator&gt;&gt; and a number of utilities.</li>
+<li><b>AntennaModel</b> child classes have been extended to produce 3D radiation patterns. Attributes such as Beamwidth have thus been separated into Vertical/HorizontalBeamwidth.</li>
+<li>The attribute <b>UseVhtOnly</b> in <b>MinstrelHtWifiManager</b> has been replaced by a new attribute called <b>UseLatestAmendmentOnly</b>.
+<li> The wifi module has <b>removed HT Greenfield support, Holland (802.11a-like) PHY configuration, and Point Coordination Function (PCF)</b></li>
+<li> The wifi ErrorRateModel API has been extended to support <b>link-to-system models</b>.
+<li> <b>Nix-Vector routing</b> supports multiple interface addresses and can print out routing paths</b>.
+<li>The <b>TxOkHeader and TxErrHeader trace sources</b> of RegularWifiMac have been obsoleted and replaced by trace sources that better capture the result of a transmission: AckedMpdu (fired when an MPDU is successfully acknowledged, via either a Normal Ack or a Block Ack), NAckedMpdu (fired when an MPDU is negatively acknowledged via a Block Ack), DroppedMpdu (fired when an MPDU is dropped), MpduResponseTimeout (fired when a CTS is missing after an RTS or a Normal Ack is missing after an MPDU) and PsduResponseTimeout (fired when a BlockAck is missing after an A-MPDU or a BlockAckReq).</li>
+</ul>
+<h2>Changes to build system:</h2>
+<ul>
+<li> The handling of <b>Boost library/header dependencies</b> has been improved.</li>
+</ul>
+<h2>Changed behavior:</h2>
+<ul>
+<li>The default <b>TCP congestion control</b> has been changed from NewReno to CUBIC.</li>
+<li>The <b>PHY layer of the wifi module</b> has been refactored: the amendment-specific logic has been ported to <b>PhyEntity</b> classes and <b>WifiPpdu</b> classes.</li>
+<li>The <b>MAC layer of the wifi module</b> has been refactored. The MacLow class has been replaced by a hierarchy of FrameExchangeManager classes, each adding support for the frame exchange sequences introduced by a given amendment.</li>
+<li>The <b>wifi BCC AWGN error rate tables</b> have been aligned with the ones provided by MATLAB and users may note a few dB difference when using BCC at high SNR and high MCS.</li>
+<li><b>ThreeGppChannelModel has been fixed</b>: cluster and sub-cluster angles could have been generated with inclination angles outside the inclination range [0, pi], and have now been constrained to the correct range.</li>
+<li>The <b>LTE RLC Acknowledged Mode (AM) transmit buffer</b> is now limited by default to a size of (1024 * 10) bytes.  Configuration of unlimited behavior can still be made by passing the value of zero to the new attribute <b>MaxTxBufferSize</b>.</li>
+</ul>
+
+<hr>
+<h1>Changes from ns-3.32 to ns-3.33</h1>
+<h2>New API:</h2>
+<ul>
+<li>A model for <b>TCP CUBIC</b> (RFC 8312) has been added.</li>
+<li>New <b>channel models based on 3GPP TR 37.885</b> have been added to support vehicular simulations.</li>
+<li><b>Time::RoundTo (unit)</b> allows time to be rounded to the nearest integer multiple of unit</li>
+<li><b>UdpClient</b> now can report both transmitted and received bytes.</li>
+<li>A new <b>MPI Enable()</b> variant was introduced that takes a user-supplied MPI_Communicator, allowing for partitioning of the MPI processes.</li>
+<li>A <b>Length</b> class has been introduced to allow users to replace the use of raw numbers (ints, doubles) that have implicit lengths with a class that represents lengths with an explicit unit.</li>
+<li>A flexible <b>CsvReader</b> class has been introduced to allow users to read in csv- or tab-delimited data.</li>
+<li>The <b>ListPositionAllocator</b> can now input positions from a csv file.</li>
+<li>A new trace source for DCTCP alpha value has been added to <b>TcpDctcp</b>.</li>
+<li>A new <b>TableBasedErrorRateModel</b> has been added for Wi-Fi, and the default values are aligned with link-simulation results from MATLAB WLAN Toolbox and IEEE 802.11 TGn.
+</li>
+<li>A new <b>LdpcSupported</b> attribute has been added for Wi-Fi in <b>HtConfiguration</b>, in order to select LDPC FEC encoding instead of the default BCC FEC encoding.
+</li>
+</ul>
+<h2>Changes to existing API:</h2>
+<ul>
+<li> The signature of <b>WifiPhy::PsduTxBeginCallback</b> and <b>WifiPhy::PhyTxPsduBegin</b> have been changed to take a map of PSDUs instead of a single PSDU
+in order to support multi-users (MU) transmissions.
+</li>
+<li> The wifi trace <b>WifiPhy::PhyRxBegin</b> has been extended to report the received power for every band.
+</li>
+<li> The wifi trace <b>WifiPhy::PhyRxBegin</b> has been extended to report the received power for every band.
+</li>
+<li>New attributes <b>SpectrumWifiPhy::TxMaskInnerBandMinimumRejection</b>, <b>SpectrumWifiPhy::TxMaskOuterBandMinimumRejection</b> and <b>SpectrumWifiPhy::TxMaskOuterBandMaximumRejection</b> have been added to configure the OFDM transmit masks.
+</li>
+</ul>
+<h2>Changes to build system:</h2>
+<ul>
+<li>Waf has been upgraded to git development version waf-2.0.21-6-g60e3f5f4</li>
+</ul>
+<h2>Changed behavior:</h2>
+<ul>
+<li>The <b>default Wi-Fi ErrorRateModel</b> for the 802.11n/ac/ax standards has been changed from the NistErrorRateModel to a new TableBasedErrorRateModel.  Users may experience a shift in Wi-Fi link range due to the new default error model, as <b>the new model is more optimistic</b> (the PER for a given MCS will degrade at a lower SNR value). The Wi-Fi module documentation provides plots that compare the performance of the NIST and new table-based model.</li>
+<li>The default value of the <b>BerThreshold</b> attribute in <b>IdealWifiManager</b> was changed from 1e-5 to 1e-6, so as to correct behavior with high order MCS.</li>
+<li> <b>Time values that are created from an int64x64_t value</b> are now rounded to the nearest integer multiple of the unit, rather than truncated.  Issue #265 in the GitLab.com tracker describes the behavior that was fixed.  Some Time values that rely on this conversion may have changed due to this fix.</li>
+<li> TCP now implements the Linux-like <b>congestion window reduced (CWR)</b> state when explicit congestion notification (ECN) is enabled.</li>
+<li> <b>TcpDctcp</b> now inherits from <b>TcpLinuxReno</b>, making its congestion avoidance track more closely to that of Linux.</li>
 </ul>
 
 <hr>
@@ -80,9 +204,9 @@ us a note on ns-developers mailing list.</p>
 <li>Added <b>Active/Inactive feature</b> to PIE queue disc</li>
 <li>Added <b>netmap</b> and <b>DPDK</b> emulation device variants</li>
 <li>Added capability to configure <b>STL pair and containers as attributes</b></li>
-<li> Added <b>CartesianToGeographic</b> coordinate conversion capability
-<li> Added <b>LollipopCounter</b>, a sequence number counter type 
-<li> Added <b>6 GHz band</b> support for Wi-Fi 802.11ax
+<li> Added <b>CartesianToGeographic</b> coordinate conversion capability</li>
+<li> Added <b>LollipopCounter</b>, a sequence number counter type</li>
+<li> Added <b>6 GHz band</b> support for Wi-Fi 802.11ax</li>
 </ul>
 <h2>Changes to existing API:</h2>
 <ul>
@@ -95,6 +219,7 @@ by including flow-monitor.h you will need to change that to stats-module.h.
 longer takes a WifiPhyStandard enum, but instead takes a similarly named 
 WifiStandard enum.  If before you specified a value such as WIFI_PHY_STANDARD_xxx, now you must specify WIFI_STANDARD_xxx.
 </li>
+<li> The <b>YansWifiPhyHelper::Default</b> and <b>SpectrumWifiPhyHelper::Default</b> methods have been removed; the default constructors may instead by used.</li>
 <li> <b>PIE</b> queue disc now uses <b>Timestamp</b> for queue delay calculation as default instead of <b>Dequeue Rate Estimator</b></li>
 </ul>
 <h2>Changes to build system:</h2>
@@ -978,7 +1103,7 @@ This section is for behavioral changes to the models that were not due to a bug 
 
 <h2>Changed behavior:</h2>
 <ul>
-<li> Behavior will be changed due to the list of bugs fixed (listed in RELEASE_NOTES); users are requested to review that list as well.
+<li> Behavior will be changed due to the list of bugs fixed (listed in RELEASE_NOTES.md); users are requested to review that list as well.
 </ul>
 
 <hr>
@@ -1189,8 +1314,8 @@ failure.  </li>
 
 <h2>Changed behavior:</h2>
 <ul>
-  <li> Wifi simulations have additional jitter on AP beaconing (see above) and some bug fixes have been applied to wifi module (see RELEASE_NOTES)
-  </li> 
+  <li> Wifi simulations have additional jitter on AP beaconing (see above) and some bug fixes have been applied to wifi module (see RELEASE_NOTES.md)
+  </li>
 </ul>
 
 <hr>
@@ -1888,12 +2013,12 @@ the usual <tt>--run</tt> option to run programs.
 
 <li><b>WaypointMobility attributes</b>
 <p>Two attributes were added to WaypointMobility model:  LazyNotify and
-InitialPositionIs Waypoint.  See RELEASE_NOTES for details.  </p> </li>
+InitialPositionIs Waypoint.  See RELEASE_NOTES.md for details.  </p> </li>
 
 <li><b>802.11g rates for ERP-OFDM added</b>
 <p>New WifiModes of the form ErpOfdmRatexxMbps, where xx is the rate
 in Mbps (6, 9, 12, 18, 24, 36, 48, 54), are available for 802.11g.  
-More details are in the RELEASE_NOTES.  </p> </li>
+More details are in the RELEASE_NOTES.md.  </p> </li>
 
 <li><b>Socket::GetSocketType ()</b>
 <p>This is analogous to getsockopt(SO_TYPE). ipv4-raw-socket, ipv6-raw-socket,
@@ -1920,7 +2045,7 @@ to an output stream. </p></li>
 <p>Derives from Ipv4RoutingProtocol and contains a DsdvHelper class. </p></li>
 
 <li><b>3GPP Long Term Evolution (LTE) models</b>
-<p>More details are in the RELEASE_NOTES. </p></li>
+<p>More details are in the RELEASE_NOTES.md. </p></li>
 
 </ul>
 

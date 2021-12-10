@@ -139,27 +139,47 @@ ThreeGppPropagationLossModel::DoCalcRxPower (double txPowerDbm,
   std::pair<double, double> heights = GetUtAndBsHeights (a->GetPosition ().z, b->GetPosition ().z);
 
   double rxPow = txPowerDbm;
-  if (cond->GetLosCondition () == ChannelCondition::LosConditionValue::LOS)
-    {
-      rxPow -= GetLossLos (distance2d, distance3d, heights.first, heights.second);
-      NS_LOG_DEBUG ("Channel codition is LOS, rxPower = " << rxPow);
-    }
-  else if (cond->GetLosCondition () == ChannelCondition::LosConditionValue::NLOS)
-    {
-      rxPow -= GetLossNlos (distance2d, distance3d, heights.first, heights.second);
-      NS_LOG_DEBUG ("Channel codition is NLOS, rxPower = " << rxPow);
-    }
-  else
-    {
-      NS_FATAL_ERROR ("Unknown channel condition");
-    }
-
+  rxPow -= GetLoss (cond, distance2d, distance3d, heights.first, heights.second); 
+  
   if (m_shadowingEnabled)
     {
       rxPow -= GetShadowing (a, b, cond->GetLosCondition ());
     }
 
   return rxPow;
+}
+
+double
+ThreeGppPropagationLossModel::GetLoss (Ptr<ChannelCondition> cond, double distance2d, double distance3d, double hUt, double hBs) const
+{
+  NS_LOG_FUNCTION (this);
+  
+  double loss = 0;
+  if (cond->GetLosCondition () == ChannelCondition::LosConditionValue::LOS)
+    {
+      loss = GetLossLos (distance2d, distance3d, hUt, hBs);
+    }
+  else if (cond->GetLosCondition () == ChannelCondition::LosConditionValue::NLOSv)
+    {
+      loss = GetLossNlosv (distance2d, distance3d, hUt, hBs);
+    }
+  else if (cond->GetLosCondition () == ChannelCondition::LosConditionValue::NLOS)
+    {
+      loss = GetLossNlos (distance2d, distance3d, hUt, hBs);
+    }
+  else
+    {
+      NS_FATAL_ERROR ("Unknown channel condition");
+    }
+  return loss;
+}
+
+double
+ThreeGppPropagationLossModel::GetLossNlosv (double distance2D, double distance3D, double hUt, double hBs) const
+{
+  NS_LOG_FUNCTION (this);
+  NS_FATAL_ERROR ("Unsupported channel condition (NLOSv)");
+  return 0;
 }
 
 double
@@ -337,7 +357,7 @@ ThreeGppRmaPropagationLossModel::GetLossLos (double distance2D, double distance3
   double distanceBp = GetBpDistance (m_frequency, hBs, hUt);
   NS_LOG_DEBUG ("breakpoint distance " << distanceBp);
 
-  // check if the distace is outside the validity range
+  // check if the distance is outside the validity range
   if (distance2D < 10.0 || distance2D > 10.0e3)
     {
       NS_LOG_WARN ("The 2D distance is outside the validity range, the pathloss value may not be accurate");
@@ -385,7 +405,7 @@ ThreeGppRmaPropagationLossModel::GetLossNlos (double distance2D, double distance
   // range and the warning message is printed (hBS for the UT-UT case and hUT
   // for the BS-BS case).
 
-  // check if the distace is outside the validity range
+  // check if the distance is outside the validity range
   if (distance2D < 10.0 || distance2D > 5.0e3)
     {
       NS_LOG_WARN ("The 2D distance is outside the validity range, the pathloss value may not be accurate");
@@ -569,7 +589,7 @@ ThreeGppUmaPropagationLossModel::GetLossLos (double distance2D, double distance3
   double distanceBp = GetBpDistance (hUt, hBs, distance2D);
   NS_LOG_DEBUG ("breakpoint distance " << distanceBp);
 
-  // check if the distace is outside the validity range
+  // check if the distance is outside the validity range
   if (distance2D < 10.0 || distance2D > 5.0e3)
     {
       NS_LOG_WARN ("The 2D distance is outside the validity range, the pathloss value may not be accurate");
@@ -616,7 +636,7 @@ ThreeGppUmaPropagationLossModel::GetLossNlos (double distance2D, double distance
   // range and the warning message is printed (hBS for the UT-UT case and hUT
   // for the BS-BS case).
 
-  // check if the distace is outside the validity range
+  // check if the distance is outside the validity range
   if (distance2D < 10.0 || distance2D > 5.0e3)
     {
       NS_LOG_WARN ("The 2D distance is outside the validity range, the pathloss value may not be accurate");
@@ -757,7 +777,7 @@ ThreeGppUmiStreetCanyonPropagationLossModel::GetLossLos (double distance2D, doub
   double distanceBp = GetBpDistance (hUt, hBs, distance2D);
   NS_LOG_DEBUG ("breakpoint distance " << distanceBp);
 
-  // check if the distace is outside the validity range
+  // check if the distance is outside the validity range
   if (distance2D < 10.0 || distance2D > 5.0e3)
     {
       NS_LOG_WARN ("The 2D distance is outside the validity range, the pathloss value may not be accurate");
@@ -804,7 +824,7 @@ ThreeGppUmiStreetCanyonPropagationLossModel::GetLossNlos (double distance2D, dou
   // range and the warning message is printed (hBS for the UT-UT case and hUT
   // for the BS-BS case).
 
-  // check if the distace is outside the validity range
+  // check if the distance is outside the validity range
   if (distance2D < 10.0 || distance2D > 5.0e3)
     {
       NS_LOG_WARN ("The 2D distance is outside the validity range, the pathloss value may not be accurate");
@@ -931,10 +951,10 @@ ThreeGppIndoorOfficePropagationLossModel::GetLossLos (double distance2D, double 
   NS_UNUSED (hUt);
   NS_UNUSED (hBs);
 
-  // check if the distace is outside the validity range
+  // check if the distance is outside the validity range
   if (distance3D < 1.0 || distance3D > 150.0)
     {
-      NS_LOG_WARN ("The 2D distance is outside the validity range, the pathloss value may not be accurate");
+      NS_LOG_WARN ("The 3D distance is outside the validity range, the pathloss value may not be accurate");
     }
 
   // compute the pathloss (see 3GPP TR 38.901, Table 7.4.1-1)
@@ -950,10 +970,10 @@ ThreeGppIndoorOfficePropagationLossModel::GetLossNlos (double distance2D, double
 {
   NS_LOG_FUNCTION (this);
 
-  // check if the distace is outside the validity range
+  // check if the distance is outside the validity range
   if (distance3D < 1.0 || distance3D > 150.0)
     {
-      NS_LOG_WARN ("The 2D distance is outside the validity range, the pathloss value may not be accurate");
+      NS_LOG_WARN ("The 3D distance is outside the validity range, the pathloss value may not be accurate");
     }
 
   // compute the pathloss

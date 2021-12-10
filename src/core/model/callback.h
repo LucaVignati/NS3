@@ -1385,7 +1385,7 @@ public:
    */
   bool IsNull (void) const
   {
-    return (DoPeekImpl () == 0) ? true : false;
+    return (DoPeekImpl () == 0);
   }
   /** Discard the implementation, set it to null */
   void Nullify (void)
@@ -1572,7 +1572,7 @@ private:
         return false;
       }
   }
-  /** \copydoc Assign */
+  /** \copydoc Assign(const CallbackBase&). */
   bool DoAssign (Ptr<const CallbackImplBase> other)
   {
     if (!DoCheckType (other))

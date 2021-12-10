@@ -57,7 +57,7 @@ public:
    * Destructor
    */
   ~ThreeGppChannelModel ();
-  
+
   void DoDispose () override;
 
   /**
@@ -66,10 +66,9 @@ public:
    */
   static TypeId GetTypeId ();
 
-
   /**
    * Set the channel condition model
-   * \param a pointer to the ChannelConditionModel object
+   * \param model pointer to the ChannelConditionModel object
    */
   void SetChannelConditionModel (Ptr<ChannelConditionModel> model);
 
@@ -117,8 +116,9 @@ public:
    */
   Ptr<const ChannelMatrix> GetChannel (Ptr<const MobilityModel> aMob,
                                        Ptr<const MobilityModel> bMob,
-                                       Ptr<const ThreeGppAntennaArrayModel> aAntenna,
-                                       Ptr<const ThreeGppAntennaArrayModel> bAntenna) override;
+                                       Ptr<const PhasedArrayModel> aAntenna,
+                                       Ptr<const PhasedArrayModel> bAntenna) override;
+
   /**
    * \brief Assign a fixed random variable stream number to the random variables
    * used by this model.
@@ -130,21 +130,37 @@ public:
 
 private:
   /**
+   * Wrap an (azimuth, inclination) angle pair in a valid range.
+   * Specifically, inclination must be in [0, M_PI] and azimuth in [0, 2*M_PI).
+   * If the inclination angle is outside of its range, the azimuth angle is
+   * rotated by M_PI.
+   * This methods aims specifically at solving the problem of generating angles at
+   * the boundaries of the angle domain, specifically, generating angle distributions
+   * close to inclinationRad=0 and inclinationRad=M_PI.
+   *
+   * \param azimuthRad the azimuth angle in radians
+   * \param inclinationRad the inclination angle in radians
+   * \return the wrapped (azimuth, inclination) angle pair in radians
+   */
+  static std::pair<double, double> WrapAngles (double azimuthRad, double inclinationRad);
+
+  /**
    * \brief Shuffle the elements of a simple sequence container of type double
    * \param first Pointer to the first element among the elements to be shuffled
    * \param last Pointer to the last element among the elements to be shuffled
    */
   void Shuffle (double * first, double * last) const;
+
   /**
-   * Extends the struct ChannelMatrix by including information that are used 
+   * Extends the struct ChannelMatrix by including information that are used
    * within the class ThreeGppChannelModel
    */
   struct ThreeGppChannelMatrix : public MatrixBasedChannelModel::ChannelMatrix
   {
-    bool m_los; //!< true if LOS, false if NLOS
-    
+    Ptr<const ChannelCondition> m_channelCondition; //!< the channel condition
+
     // TODO these are not currently used, they have to be correctly set when including the spatial consistent update procedure
-    /*The following parameters are stored for spatial consistent updating. The notation is 
+    /*The following parameters are stored for spatial consistent updating. The notation is
     that of 3GPP technical reports, but it can apply also to other channel realizations*/
     MatrixBasedChannelModel::Double2DVector m_nonSelfBlocking; //!< store the blockages
     Vector m_preLocUT; //!< location of UT when generating the previous channel
@@ -154,7 +170,6 @@ private:
     double m_K; //!< K factor
     uint8_t m_numCluster; //!< reduced cluster number;
     MatrixBasedChannelModel::Double3DVector m_clusterPhase; //!< the initial random phases
-    bool m_o2i; //!< true if O2I
     Vector m_speed; //!< velocity
     double m_dis2D; //!< 2D distance between tx and rx
     double m_dis3D; //!< 3D distance between tx and rx
@@ -166,50 +181,47 @@ private:
    */
   struct ParamsTable : public SimpleRefCount<ParamsTable>
   {
-    uint8_t m_numOfCluster = 0;
-    uint8_t m_raysPerCluster = 0;
-    double m_uLgDS = 0;
-    double m_sigLgDS = 0;
-    double m_uLgASD = 0;
-    double m_sigLgASD = 0;
-    double m_uLgASA = 0;
-    double m_sigLgASA = 0;
-    double m_uLgZSA = 0;
-    double m_sigLgZSA = 0;
-    double m_uLgZSD = 0;
-    double m_sigLgZSD = 0;
-    double m_offsetZOD = 0;
-    double m_cDS = 0;
-    double m_cASD = 0;
-    double m_cASA = 0;
-    double m_cZSA = 0;
-    double m_uK = 0;
-    double m_sigK = 0;
-    double m_rTau = 0;
-    double m_uXpr = 0;
-    double m_sigXpr = 0;
-    double m_perClusterShadowingStd = 0;
-
-    double m_sqrtC[7][7];
+    uint8_t m_numOfCluster = 0; //!< Number of clusters
+    uint8_t m_raysPerCluster = 0; //!< Number of rays per cluster
+    double m_uLgDS = 0; //!< Mean value of 10-base logarithm of delay spread
+    double m_sigLgDS = 0; //!< Standard deviation value of 10-base logarithm of delay spread
+    double m_uLgASD = 0; //!< Mean value of 10-base logarithm of azimuth angle spread of departure
+    double m_sigLgASD = 0; //!< Standard deviation of 10-base logarithm of azimuth angle spread of departure
+    double m_uLgASA = 0; //!< Mean value of 10-base logarithm of azimuth angle spread of arrival
+    double m_sigLgASA = 0; //!< Standard deviation of 10-base logarithm of azimuth angle spread of arrival
+    double m_uLgZSA = 0; //!< Mean value of 10-base logarithm of zenith angle spread of arrival
+    double m_sigLgZSA = 0; //!< Standard deviation of 10-base logarithm of zenith angle spread of arrival
+    double m_uLgZSD = 0; //!< Mean value of 10-base logarithm of zenith angle spread of departure
+    double m_sigLgZSD = 0; //!< Standard deviation of 10-base logarithm of zenith angle spread of departure
+    double m_offsetZOD = 0; //!< Offset of zenith angle of departure
+    double m_cDS = 0; //!< Cluster DS
+    double m_cASD = 0; //!< Cluster ASD (Azimuth angle Spread of Departure)
+    double m_cASA = 0; //!< Cluster ASA (Azimuth angle Spread of Arrival)
+    double m_cZSA = 0; //!< Cluster ZSA (Zenith angle Spread of Arrival)
+    double m_uK = 0; //!< Mean of K-factor
+    double m_sigK = 0; //!< Standard deviation of K-factor
+    double m_rTau = 0; //!< Delay scaling parameter
+    double m_uXpr = 0; //!< Mean of Cross-Polarization Ratio
+    double m_sigXpr = 0; //!< Standard deviation of Cross-Polarization Ratio
+    double m_perClusterShadowingStd = 0; //!< Per cluster shadowing standard deviation 
+    double m_sqrtC[7][7]; //!< The square root matrix and follows the order of [SF, K, DS, ASD, ASA, ZSD, ZSA]
   };
 
   /**
    * Get the parameters needed to apply the channel generation procedure
-   * \param los the LOS/NLOS condition
-   * \param o2i whether if it is an outdoor to indoor transmission
+   * \param channelCondition the channel condition
    * \param hBS the height of the BS
    * \param hUT the height of the UT
    * \param distance2D the 2D distance between tx and rx
    * \return the parameters table
    */
-  Ptr<const ParamsTable> GetThreeGppTable (bool los, bool o2i, double hBS, double hUT, double distance2D) const;
+  virtual Ptr<const ParamsTable> GetThreeGppTable (Ptr<const ChannelCondition> channelCondition, double hBS, double hUT, double distance2D) const;
 
   /**
    * Compute the channel matrix between two devices using the procedure
    * described in 3GPP TR 38.901
    * \param locUT the location of the UT
-   * \param los the LOS/NLOS condition
-   * \param o2i whether if it is an outdoor to indoor transmission
+   * \param channelCondition the channel condition
    * \param sAntenna the s node antenna array
    * \param uAntenna the u node antenna array
    * \param uAngle the u node angle
@@ -219,9 +231,9 @@ private:
    * \param hUT the height of the UT
    * \return the channel realization
    */
-  Ptr<ThreeGppChannelMatrix> GetNewChannel (Vector locUT, bool los, bool o2i,
-                                            Ptr<const ThreeGppAntennaArrayModel> sAntenna,
-                                            Ptr<const ThreeGppAntennaArrayModel> uAntenna,
+  Ptr<ThreeGppChannelMatrix> GetNewChannel (Vector locUT, Ptr<const ChannelCondition> channelCondition,
+                                            Ptr<const PhasedArrayModel> sAntenna,
+                                            Ptr<const PhasedArrayModel> uAntenna,
                                             Angles &uAngle, Angles &sAngle,
                                             double dis2D, double hBS, double hUT) const;
 
@@ -239,10 +251,10 @@ private:
   /**
    * Check if the channel matrix has to be updated
    * \param channelMatrix channel matrix
-   * \param isLos the current los condition
+   * \param channelCondition the channel condition
    * \return true if the channel matrix has to be updated, false otherwise
    */
-  bool ChannelMatrixNeedsUpdate (Ptr<const ThreeGppChannelMatrix> channelMatrix, bool isLos) const;
+  bool ChannelMatrixNeedsUpdate (Ptr<const ThreeGppChannelMatrix> channelMatrix, Ptr<const ChannelCondition> channelCondition) const;
 
   std::unordered_map<uint32_t, Ptr<ThreeGppChannelMatrix> > m_channelMap; //!< map containing the channel realizations
   Time m_updatePeriod; //!< the channel update period

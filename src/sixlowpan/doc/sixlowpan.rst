@@ -23,17 +23,15 @@ standpoint, as it does extend it beyond the original scope by supporting also
 other kinds of networks.
 
 Other than that, the module strictly follows :rfc:`4944` and :rfc:`6282`, with the
-following exceptions:
-
-* HC2 encoding is not supported
-* IPHC's SAC and DAC are not supported
-
-The HC2 encoding is not supported, as it has been superseded by IPHC and NHC
+exception that HC2 encoding is not supported, as it has been superseded by IPHC and NHC
 compression type (\ :rfc:`6282`).
 
-IPHC SAC and DAC are not yet supported, as they do require :rfc:`6775` 
+IPHC sateful (context-based) compression is supported but, since :rfc:`6775`   
 ("Neighbor Discovery Optimization for IPv6 over Low-Power Wireless Personal Area Networks (6LoWPANs)")
-for full compliance. It is planned to support them in the future.
+is not yet implemented, it is necessary to add the context to the nodes manually.
+
+This is possible though the ``SixLowPanHelper::AddContext`` function.
+Mind that installing different contexts in different nodes will lead to decompression failures.
 
 NetDevice
 #########
@@ -114,13 +112,40 @@ attribute.
 Scope and Limitations
 =====================
 
+Contex-based compression
+########################
+
+IPHC sateful (context-based) compression is supported but, since :rfc:`6775`   
+("Neighbor Discovery Optimization for IPv6 over Low-Power Wireless Personal Area Networks (6LoWPANs)")
+is not yet implemented, it is necessary to add the context to the nodes manually.
+
+6LoWPAM-ND
+##########
+
 Future versions of this module will support :rfc:`6775`, however no timeframe is guaranteed.
+
+Mesh-under routing
+##################
 
 It would be a good idea to improve the mesh-under flooding by providing the following:
 
 * Adaptive hop-limit calculation,
 * Adaptive forwarding jitter,
 * Use of direct (non mesh) transmission for packets directed to 1-hop neighbors.
+
+Mixing compression types in a PAN
+#################################
+
+The IPv6/MAC addressing scheme defined in :rfc:`6282` and :rfc:`4944` is different.
+One adds the PanId in the pseudo-MAC address (4944) and the other doesn't (6282).
+
+The expected use cases (confirmed by the RFC editor) is to *never* have a mixed environment
+where part of the nodes are using HC1 and part IPHC because this would lead to confusion on
+what the IPv6 address of a node is. 
+
+Due to this, the nodes configured to use IPHC will drop the packets compressed with HC1
+and viceversa. The drop is logged in the drop trace as ``DROP_DISALLOWED_COMPRESSION``.
+
 
 Using 6LoWPAN with IPv4 (or other L3 protocols)
 ###############################################

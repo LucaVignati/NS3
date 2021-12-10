@@ -21,6 +21,8 @@
 #ifndef WIFI_PHY_BAND_H
 #define WIFI_PHY_BAND_H
 
+#include <iostream>
+
 namespace ns3 {
 
 /**
@@ -57,7 +59,6 @@ inline std::ostream& operator<< (std::ostream& os, WifiPhyBand band)
     case WIFI_PHY_BAND_6GHZ:
       return (os << "6GHz");
     default:
-      NS_FATAL_ERROR ("Invalid band");
       return (os << "INVALID");
     }
 }

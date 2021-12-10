@@ -62,7 +62,7 @@
 // an RTT. The size of initial congestion window is set to 10, and pacing
 // of the initial window is enabled. The available command-line options and
 // their default values can be observed in the usual way by running the
-// program to print the help info; i.e.: ./waf --run 'tcp-pacing --PrintHelp'
+// program to print the help info; i.e.: ./ns3 --run 'tcp-pacing --PrintHelp'
 //
 // When pacing is disabled, TCP sends eligible packets back-to-back. The
 // differences in behaviour when pacing is disabled can be observed from the
@@ -148,7 +148,7 @@ main (int argc, char *argv[])
   bool tracing = false;
 
   uint32_t maxBytes = 0; // value of zero corresponds to unlimited send
-  std::string transportProtocol = "ns3::TcpNewReno";
+  std::string transportProtocol = "ns3::TcpCubic";
 
   Time simulationEndTime = Seconds (5);
   DataRate bottleneckBandwidth ("10Mbps");  // value of x as shown in the above network topology

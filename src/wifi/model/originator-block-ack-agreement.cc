@@ -47,31 +47,31 @@ OriginatorBlockAckAgreement::SetState (State state)
 bool
 OriginatorBlockAckAgreement::IsPending (void) const
 {
-  return (m_state == PENDING) ? true : false;
+  return m_state == PENDING;
 }
 
 bool
 OriginatorBlockAckAgreement::IsEstablished (void) const
 {
-  return (m_state == ESTABLISHED) ? true : false;
+  return m_state == ESTABLISHED;
 }
 
 bool
 OriginatorBlockAckAgreement::IsRejected (void) const
 {
-  return (m_state == REJECTED) ? true : false;
+  return m_state == REJECTED;
 }
 
 bool
 OriginatorBlockAckAgreement::IsNoReply (void) const
 {
-  return (m_state == NO_REPLY) ? true : false;
+  return m_state == NO_REPLY;
 }
 
 bool
 OriginatorBlockAckAgreement::IsReset (void) const
 {
-  return (m_state == RESET) ? true : false;
+  return m_state == RESET;
 }
 
 uint16_t
@@ -88,8 +88,7 @@ OriginatorBlockAckAgreement::GetStartingSequence (void) const
 std::size_t
 OriginatorBlockAckAgreement::GetDistance (uint16_t seqNumber) const
 {
-  NS_ASSERT (seqNumber < SEQNO_SPACE_SIZE);
-  return (seqNumber - GetStartingSequence () + SEQNO_SPACE_SIZE) % SEQNO_SPACE_SIZE;
+  return BlockAckAgreement::GetDistance (seqNumber, m_txWindow.GetWinStart ());
 }
 
 void

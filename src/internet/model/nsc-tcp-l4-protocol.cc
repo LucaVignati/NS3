@@ -89,8 +89,12 @@ private:
    *
    * Its also used by the cradle code to add a timestamp to
    * printk/printf/debug output.
+   *
+   * \param [out] sec seconds
+   * \param [out] usec microseconds
+   *
    */
-  virtual void gettime (unsigned int *, unsigned int *);
+  virtual void gettime (unsigned int *sec, unsigned int *usec);
 private:
   Ptr<NscTcpL4Protocol> m_prot; //!< the NSC TCP protocol
 };
@@ -119,7 +123,7 @@ NscInterfaceImpl::gettime (unsigned int *sec, unsigned int *usec)
 
 #undef NS_LOG_APPEND_CONTEXT
 #define NS_LOG_APPEND_CONTEXT                                   \
-  if (m_node) { std::clog << Simulator::Now ().GetSeconds () << " [node " << m_node->GetId () << "] "; } 
+  if (m_node) { std::clog << Simulator::Now ().As (Time::S) << " [node " << m_node->GetId () << "] "; } 
 
 TypeId 
 NscTcpL4Protocol::GetTypeId (void)

@@ -23,7 +23,7 @@
 #include "ns3/log.h"
 #include "three-gpp-spectrum-propagation-loss-model.h"
 #include "ns3/net-device.h"
-#include "ns3/three-gpp-antenna-array-model.h"
+#include "ns3/phased-array-model.h"
 #include "ns3/node.h"
 #include "ns3/channel-condition-model.h"
 #include "ns3/double.h"
@@ -41,6 +41,7 @@ NS_OBJECT_ENSURE_REGISTERED (ThreeGppSpectrumPropagationLossModel);
 ThreeGppSpectrumPropagationLossModel::ThreeGppSpectrumPropagationLossModel ()
 {
   NS_LOG_FUNCTION (this);
+  m_uniformRv = CreateObject<UniformRandomVariable> ();
 }
 
 ThreeGppSpectrumPropagationLossModel::~ThreeGppSpectrumPropagationLossModel ()
@@ -64,13 +65,20 @@ ThreeGppSpectrumPropagationLossModel::GetTypeId (void)
     .SetParent<SpectrumPropagationLossModel> ()
     .SetGroupName ("Spectrum")
     .AddConstructor<ThreeGppSpectrumPropagationLossModel> ()
-    .AddAttribute("ChannelModel", 
-                  "The channel model. It needs to implement the MatrixBasedChannelModel interface",
-                  StringValue("ns3::ThreeGppChannelModel"),
-                  MakePointerAccessor (&ThreeGppSpectrumPropagationLossModel::SetChannelModel,
-                                       &ThreeGppSpectrumPropagationLossModel::GetChannelModel),
-      MakePointerChecker<MatrixBasedChannelModel> ())
-    ;
+    .AddAttribute ("ChannelModel",
+                   "The channel model. It needs to implement the MatrixBasedChannelModel interface",
+                   StringValue ("ns3::ThreeGppChannelModel"),
+                   MakePointerAccessor (&ThreeGppSpectrumPropagationLossModel::SetChannelModel,
+                                        &ThreeGppSpectrumPropagationLossModel::GetChannelModel),
+                   MakePointerChecker<MatrixBasedChannelModel> ())
+    .AddAttribute ("vScatt",
+                   "Maximum speed of the vehicle in the layout (see 3GPP TR 37.885 v15.3.0, Sec. 6.2.3)."
+                   "Used to compute the additional contribution for the Doppler of"
+                   "delayed (reflected) paths",
+                   DoubleValue (0.0),
+                   MakeDoubleAccessor (&ThreeGppSpectrumPropagationLossModel::m_vScatt),
+                   MakeDoubleChecker<double> (0.0))
+  ;
   return tid;
 }
 
@@ -87,9 +95,10 @@ ThreeGppSpectrumPropagationLossModel::GetChannelModel () const
 }
 
 void
-ThreeGppSpectrumPropagationLossModel::AddDevice (Ptr<NetDevice> n, Ptr<const ThreeGppAntennaArrayModel> a)
+ThreeGppSpectrumPropagationLossModel::AddDevice (Ptr<NetDevice> n, Ptr<const PhasedArrayModel> a)
 {
-  NS_ASSERT_MSG (m_deviceAntennaMap.find (n->GetNode ()->GetId ()) == m_deviceAntennaMap.end (), "Device is already present in the map");
+  NS_ASSERT_MSG (m_deviceAntennaMap.find (n->GetNode ()->GetId ()) == m_deviceAntennaMap.end (),
+                 "Device is already present in the map");
   m_deviceAntennaMap.insert (std::make_pair (n->GetNode ()->GetId (), a));
 }
 
@@ -113,10 +122,10 @@ ThreeGppSpectrumPropagationLossModel::GetChannelModelAttribute (const std::strin
   m_channelModel->GetAttribute (name, value);
 }
 
-ThreeGppAntennaArrayModel::ComplexVector
+PhasedArrayModel::ComplexVector
 ThreeGppSpectrumPropagationLossModel::CalcLongTerm (Ptr<const MatrixBasedChannelModel::ChannelMatrix> params,
-                                                    const ThreeGppAntennaArrayModel::ComplexVector &sW,
-                                                    const ThreeGppAntennaArrayModel::ComplexVector &uW) const
+                                                    const PhasedArrayModel::ComplexVector &sW,
+                                                    const PhasedArrayModel::ComplexVector &uW) const
 {
   NS_LOG_FUNCTION (this);
 
@@ -126,15 +135,15 @@ ThreeGppSpectrumPropagationLossModel::CalcLongTerm (Ptr<const MatrixBasedChannel
   NS_LOG_DEBUG ("CalcLongTerm with sAntenna " << sAntenna << " uAntenna " << uAntenna);
   //store the long term part to reduce computation load
   //only the small scale fading needs to be updated if the large scale parameters and antenna weights remain unchanged.
-  ThreeGppAntennaArrayModel::ComplexVector longTerm;
+  PhasedArrayModel::ComplexVector longTerm;
   uint8_t numCluster = static_cast<uint8_t> (params->m_channel[0][0].size ());
 
   for (uint8_t cIndex = 0; cIndex < numCluster; cIndex++)
     {
-      std::complex<double> txSum (0,0);
+      std::complex<double> txSum (0, 0);
       for (uint16_t sIndex = 0; sIndex < sAntenna; sIndex++)
         {
-          std::complex<double> rxSum (0,0);
+          std::complex<double> rxSum (0, 0);
           for (uint16_t uIndex = 0; uIndex < uAntenna; uIndex++)
             {
               rxSum = rxSum + uW[uIndex] * params->m_channel[uIndex][sIndex][cIndex];
@@ -148,7 +157,7 @@ ThreeGppSpectrumPropagationLossModel::CalcLongTerm (Ptr<const MatrixBasedChannel
 
 Ptr<SpectrumValue>
 ThreeGppSpectrumPropagationLossModel::CalcBeamformingGain (Ptr<SpectrumValue> txPsd,
-                                                           ThreeGppAntennaArrayModel::ComplexVector longTerm,
+                                                           PhasedArrayModel::ComplexVector longTerm,
                                                            Ptr<const MatrixBasedChannelModel::ChannelMatrix> params,
                                                            const ns3::Vector &sSpeed, const ns3::Vector &uSpeed) const
 {
@@ -163,35 +172,55 @@ ThreeGppSpectrumPropagationLossModel::CalcBeamformingGain (Ptr<SpectrumValue> tx
   // NOTE the update of Doppler is simplified by only taking the center angle of
   // each cluster in to consideration.
   double slotTime = Simulator::Now ().GetSeconds ();
-  ThreeGppAntennaArrayModel::ComplexVector doppler;
+  double factor = 2 * M_PI * slotTime * GetFrequency () / 3e8;
+  PhasedArrayModel::ComplexVector doppler;
   for (uint8_t cIndex = 0; cIndex < numCluster; cIndex++)
     {
-      //cluster angle angle[direction][n],where, direction = 0(aoa), 1(zoa).
-      // TODO should I include the "alfa" term for the Doppler of delayed paths?
-      double temp_doppler = 2 * M_PI * ((sin (params->m_angle[MatrixBasedChannelModel::ZOA_INDEX][cIndex] * M_PI / 180) * cos (params->m_angle[MatrixBasedChannelModel::AOA_INDEX][cIndex] * M_PI / 180) * uSpeed.x
-                                         + sin (params->m_angle[MatrixBasedChannelModel::ZOA_INDEX][cIndex] * M_PI / 180) * sin (params->m_angle[MatrixBasedChannelModel::AOA_INDEX][cIndex] * M_PI / 180) * uSpeed.y
-                                         + cos (params->m_angle[MatrixBasedChannelModel::ZOA_INDEX][cIndex] * M_PI / 180) * uSpeed.z)
-                                         + (sin (params->m_angle[MatrixBasedChannelModel::ZOD_INDEX][cIndex] * M_PI / 180) * cos (params->m_angle[MatrixBasedChannelModel::AOD_INDEX][cIndex] * M_PI / 180) * sSpeed.x
+      // Compute alpha and D as described in 3GPP TR 37.885 v15.3.0, Sec. 6.2.3
+      // These terms account for an additional Doppler contribution due to the
+      // presence of moving objects in the sorrounding environment, such as in
+      // vehicular scenarios.
+      // This contribution is applied only to the delayed (reflected) paths and
+      // must be properly configured by setting the value of
+      // m_vScatt, which is defined as "maximum speed of the vehicle in the
+      // layout".
+      // By default, m_vScatt is set to 0, so there is no additional Doppler
+      // contribution.
+      double alpha = 0;
+      double D = 0;
+      if (cIndex != 0)
+        {
+          alpha = m_uniformRv->GetValue (-1, 1);
+          if (m_vScatt != 0.0)
+            {
+              D = m_uniformRv->GetValue (-m_vScatt, m_vScatt);
+            }
+        }
+
+      //cluster angle angle[direction][n], where direction = 0(aoa), 1(zoa).
+      double tempDoppler = factor * ((sin (params->m_angle[MatrixBasedChannelModel::ZOA_INDEX][cIndex] * M_PI / 180) * cos (params->m_angle[MatrixBasedChannelModel::AOA_INDEX][cIndex] * M_PI / 180) * uSpeed.x
+                                       + sin (params->m_angle[MatrixBasedChannelModel::ZOA_INDEX][cIndex] * M_PI / 180) * sin (params->m_angle[MatrixBasedChannelModel::AOA_INDEX][cIndex] * M_PI / 180) * uSpeed.y
+                                       + cos (params->m_angle[MatrixBasedChannelModel::ZOA_INDEX][cIndex] * M_PI / 180) * uSpeed.z)
+                                      + (sin (params->m_angle[MatrixBasedChannelModel::ZOD_INDEX][cIndex] * M_PI / 180) * cos (params->m_angle[MatrixBasedChannelModel::AOD_INDEX][cIndex] * M_PI / 180) * sSpeed.x
                                          + sin (params->m_angle[MatrixBasedChannelModel::ZOD_INDEX][cIndex] * M_PI / 180) * sin (params->m_angle[MatrixBasedChannelModel::AOD_INDEX][cIndex] * M_PI / 180) * sSpeed.y
-                                         + cos (params->m_angle[MatrixBasedChannelModel::ZOD_INDEX][cIndex] * M_PI / 180) * sSpeed.z))
-        * slotTime * GetFrequency () / 3e8;
-      doppler.push_back (exp (std::complex<double> (0, temp_doppler)));
+                                         + cos (params->m_angle[MatrixBasedChannelModel::ZOD_INDEX][cIndex] * M_PI / 180) * sSpeed.z) + 2 * alpha * D);
+      doppler.push_back (std::complex<double> (cos (tempDoppler), sin (tempDoppler)));
     }
 
   // apply the doppler term and the propagation delay to the long term component
   // to obtain the beamforming gain
   auto vit = tempPsd->ValuesBegin (); // psd iterator
-  auto sbit = tempPsd->ConstBandsBegin(); // band iterator
+  auto sbit = tempPsd->ConstBandsBegin (); // band iterator
   while (vit != tempPsd->ValuesEnd ())
     {
-      std::complex<double> subsbandGain (0.0,0.0);
       if ((*vit) != 0.00)
         {
+          std::complex<double> subsbandGain (0.0, 0.0);
           double fsb = (*sbit).fc; // center frequency of the sub-band
           for (uint8_t cIndex = 0; cIndex < numCluster; cIndex++)
             {
               double delay = -2 * M_PI * fsb * (params->m_delay[cIndex]);
-              subsbandGain = subsbandGain + longTerm[cIndex] * doppler[cIndex] * exp (std::complex<double> (0, delay));
+              subsbandGain = subsbandGain + longTerm[cIndex] * doppler[cIndex] * std::complex<double> (cos (delay), sin (delay));
             }
           *vit = (*vit) * (norm (subsbandGain));
         }
@@ -201,27 +230,27 @@ ThreeGppSpectrumPropagationLossModel::CalcBeamformingGain (Ptr<SpectrumValue> tx
   return tempPsd;
 }
 
-ThreeGppAntennaArrayModel::ComplexVector
+PhasedArrayModel::ComplexVector
 ThreeGppSpectrumPropagationLossModel::GetLongTerm (uint32_t aId, uint32_t bId,
                                                    Ptr<const MatrixBasedChannelModel::ChannelMatrix> channelMatrix,
-                                                   const ThreeGppAntennaArrayModel::ComplexVector &aW,
-                                                   const ThreeGppAntennaArrayModel::ComplexVector &bW) const
+                                                   const PhasedArrayModel::ComplexVector &aW,
+                                                   const PhasedArrayModel::ComplexVector &bW) const
 {
-  ThreeGppAntennaArrayModel::ComplexVector longTerm; // vector containing the long term component for each cluster
+  PhasedArrayModel::ComplexVector longTerm; // vector containing the long term component for each cluster
 
   // check if the channel matrix was generated considering a as the s-node and
   // b as the u-node or viceversa
-  ThreeGppAntennaArrayModel::ComplexVector sW, uW;
+  PhasedArrayModel::ComplexVector sW, uW;
   if (!channelMatrix->IsReverse (aId, bId))
-  {
-    sW = aW;
-    uW = bW;
-  }
+    {
+      sW = aW;
+      uW = bW;
+    }
   else
-  {
-    sW = bW;
-    uW = aW;
-  }
+    {
+      sW = bW;
+      uW = aW;
+    }
 
   // compute the long term key, the key is unique for each tx-rx pair
   uint32_t x1 = std::min (aId, bId);
@@ -233,23 +262,23 @@ ThreeGppSpectrumPropagationLossModel::GetLongTerm (uint32_t aId, uint32_t bId,
 
   // look for the long term in the map and check if it is valid
   if (m_longTermMap.find (longTermId) != m_longTermMap.end ())
-  {
-    NS_LOG_DEBUG ("found the long term component in the map");
-    longTerm = m_longTermMap[longTermId]->m_longTerm;
+    {
+      NS_LOG_DEBUG ("found the long term component in the map");
+      longTerm = m_longTermMap[longTermId]->m_longTerm;
 
-    // check if the channel matrix has been updated
-    // or the s beam has been changed
-    // or the u beam has been changed
-    update = (m_longTermMap[longTermId]->m_channel->m_generatedTime != channelMatrix->m_generatedTime
-              || m_longTermMap[longTermId]->m_sW != sW
-              || m_longTermMap[longTermId]->m_uW != uW);
+      // check if the channel matrix has been updated
+      // or the s beam has been changed
+      // or the u beam has been changed
+      update = (m_longTermMap[longTermId]->m_channel->m_generatedTime != channelMatrix->m_generatedTime
+                || m_longTermMap[longTermId]->m_sW != sW
+                || m_longTermMap[longTermId]->m_uW != uW);
 
-  }
+    }
   else
-  {
-    NS_LOG_DEBUG ("long term component NOT found");
-    notFound = true;
-  }
+    {
+      NS_LOG_DEBUG ("long term component NOT found");
+      notFound = true;
+    }
 
   if (update || notFound)
     {
@@ -286,28 +315,22 @@ ThreeGppSpectrumPropagationLossModel::DoCalcRxPowerSpectralDensity (Ptr<const Sp
 
   // retrieve the antenna of device a
   NS_ASSERT_MSG (m_deviceAntennaMap.find (aId) != m_deviceAntennaMap.end (), "Antenna not found for node " << aId);
-  Ptr<const ThreeGppAntennaArrayModel> aAntenna = m_deviceAntennaMap.at (aId);
+  Ptr<const PhasedArrayModel> aAntenna = m_deviceAntennaMap.at (aId);
   NS_LOG_DEBUG ("a node " << a->GetObject<Node> () << " antenna " << aAntenna);
 
   // retrieve the antenna of the device b
   NS_ASSERT_MSG (m_deviceAntennaMap.find (bId) != m_deviceAntennaMap.end (), "Antenna not found for device " << bId);
-  Ptr<const ThreeGppAntennaArrayModel> bAntenna = m_deviceAntennaMap.at (bId);
+  Ptr<const PhasedArrayModel> bAntenna = m_deviceAntennaMap.at (bId);
   NS_LOG_DEBUG ("b node " << bId << " antenna " << bAntenna);
-
-  if (aAntenna->IsOmniTx () || bAntenna->IsOmniTx () )
-    {
-      NS_LOG_LOGIC ("Omni transmission, do nothing.");
-      return rxPsd;
-    }
 
   Ptr<const MatrixBasedChannelModel::ChannelMatrix> channelMatrix = m_channelModel->GetChannel (a, b, aAntenna, bAntenna);
 
   // get the precoding and combining vectors
-  ThreeGppAntennaArrayModel::ComplexVector aW = aAntenna->GetBeamformingVector ();
-  ThreeGppAntennaArrayModel::ComplexVector bW = bAntenna->GetBeamformingVector ();
+  PhasedArrayModel::ComplexVector aW = aAntenna->GetBeamformingVector ();
+  PhasedArrayModel::ComplexVector bW = bAntenna->GetBeamformingVector ();
 
   // retrieve the long term component
-  ThreeGppAntennaArrayModel::ComplexVector longTerm = GetLongTerm (aId, bId, channelMatrix, aW, bW);
+  PhasedArrayModel::ComplexVector longTerm = GetLongTerm (aId, bId, channelMatrix, aW, bW);
 
   // apply the beamforming gain
   rxPsd = CalcBeamformingGain (rxPsd, longTerm, channelMatrix, a->GetVelocity (), b->GetVelocity ());

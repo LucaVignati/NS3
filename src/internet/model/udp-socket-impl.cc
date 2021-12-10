@@ -750,7 +750,7 @@ UdpSocketImpl::DoSendTo (Ptr<Packet> p, Ipv6Address dest, uint16_t port)
   else if (ipv6->GetRoutingProtocol () != 0)
     {
       Ipv6Header header;
-      header.SetDestinationAddress (dest);
+      header.SetDestination (dest);
       header.SetNextHeader (UdpL4Protocol::PROT_NUMBER);
       Socket::SocketErrno errno_;
       Ptr<Ipv6Route> route;
@@ -760,8 +760,8 @@ UdpSocketImpl::DoSendTo (Ptr<Packet> p, Ipv6Address dest, uint16_t port)
       if (route != 0)
         {
           NS_LOG_LOGIC ("Route exists");
-          header.SetSourceAddress (route->GetSource ());
-          m_udp->Send (p->Copy (), header.GetSourceAddress (), header.GetDestinationAddress (),
+          header.SetSource (route->GetSource ());
+          m_udp->Send (p->Copy (), header.GetSource (), header.GetDestination (),
                        m_endPoint6->GetLocalPort (), port, route);
           NotifyDataSent (p->GetSize ());
           return p->GetSize ();
@@ -1011,6 +1011,8 @@ UdpSocketImpl::ForwardUp (Ptr<Packet> packet, Ipv4Header header, uint16_t port,
     {
       Ipv4PacketInfoTag tag;
       packet->RemovePacketTag (tag);
+      tag.SetAddress (header.GetDestination ());
+      tag.SetTtl (header.GetTtl ());
       tag.SetRecvIf (incomingInterface->GetDevice ()->GetIfIndex ());
       packet->AddPacketTag (tag);
     }
@@ -1056,7 +1058,7 @@ UdpSocketImpl::ForwardUp (Ptr<Packet> packet, Ipv4Header header, uint16_t port,
 void 
 UdpSocketImpl::ForwardUp6 (Ptr<Packet> packet, Ipv6Header header, uint16_t port, Ptr<Ipv6Interface> incomingInterface)
 {
-  NS_LOG_FUNCTION (this << packet << header.GetSourceAddress () << port);
+  NS_LOG_FUNCTION (this << packet << header.GetSource () << port);
 
   if (m_shutdownRecv)
     {
@@ -1068,6 +1070,9 @@ UdpSocketImpl::ForwardUp6 (Ptr<Packet> packet, Ipv6Header header, uint16_t port,
     {
       Ipv6PacketInfoTag tag;
       packet->RemovePacketTag (tag);
+      tag.SetAddress (header.GetDestination ());
+      tag.SetHoplimit (header.GetHopLimit ());
+      tag.SetTrafficClass (header.GetTrafficClass ());
       tag.SetRecvIf (incomingInterface->GetDevice ()->GetIfIndex ());
       packet->AddPacketTag (tag);
     }
@@ -1093,7 +1098,7 @@ UdpSocketImpl::ForwardUp6 (Ptr<Packet> packet, Ipv6Header header, uint16_t port,
 
   if ((m_rxAvailable + packet->GetSize ()) <= m_rcvBufSize)
     {
-      Address address = Inet6SocketAddress (header.GetSourceAddress (), port);
+      Address address = Inet6SocketAddress (header.GetSource (), port);
       m_deliveryQueue.push (std::make_pair (packet, address));
       m_rxAvailable += packet->GetSize ();
       NotifyDataRecv ();

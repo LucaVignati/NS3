@@ -38,7 +38,7 @@
 //
 // Example: set slot time to 20 microseconds, while keeping other values as defined in the simulation script:
 //
-//          ./waf --run "wifi-timing-attributes --slot=20"
+//          ./ns3 --run "wifi-timing-attributes --slot=20"
 //
 // Network topology:
 //
@@ -78,7 +78,7 @@ int main (int argc, char *argv[])
 
   //Create wireless channel
   YansWifiChannelHelper channel = YansWifiChannelHelper::Default ();
-  YansWifiPhyHelper phy = YansWifiPhyHelper::Default ();
+  YansWifiPhyHelper phy;
   phy.SetChannel (channel.Create ());
 
   //Default IEEE 802.11n (2.4 GHz)

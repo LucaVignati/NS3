@@ -79,7 +79,7 @@ void experiment (bool enableCtsRts, std::string wifiManager)
   WifiHelper wifi;
   wifi.SetStandard (WIFI_STANDARD_80211b);
   wifi.SetRemoteStationManager ("ns3::" + wifiManager + "WifiManager");
-  YansWifiPhyHelper wifiPhy =  YansWifiPhyHelper::Default ();
+  YansWifiPhyHelper wifiPhy;
   wifiPhy.SetChannel (wifiChannel);
   WifiMacHelper wifiMac;
   wifiMac.SetType ("ns3::AdhocWifiMac"); // use ad-hoc MAC
@@ -90,6 +90,7 @@ void experiment (bool enableCtsRts, std::string wifiManager)
   // athstats.EnableAthstats(enableCtsRts ? "rtscts-athstats-node" : "basic-athstats-node" , nodes);
 
   // uncomment the following to have pcap output
+  // wifiPhy.SetPcapDataLinkType (WifiPhyHelper::DLT_IEEE802_11_RADIO);
   // wifiPhy.EnablePcap (enableCtsRts ? "rtscts-pcap-node" : "basic-pcap-node" , nodes);
 
 

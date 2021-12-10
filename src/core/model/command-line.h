@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "callback.h"
+#include "nstime.h"
 
 /**
  * \file
@@ -154,19 +155,19 @@ namespace ns3 {
  * Here is the output from a few runs of that program:
  *
  * \verbatim
-   $ ./waf --run="command-line-example"
+   $ ./ns3 --run="command-line-example"
    intArg:   1
    boolArg:  false
    strArg:   "strArg default"
    cbArg:    "cbArg default"
 
-   $ ./waf --run="command-line-example --intArg=2 --boolArg --strArg=Hello --cbArg=World"
+   $ ./ns3 --run="command-line-example --intArg=2 --boolArg --strArg=Hello --cbArg=World"
    intArg:   2
    boolArg:  true
    strArg:   "Hello"
    cbArg:    "World"
 
-   $ ./waf --run="command-line-example --help"
+   $ ./ns3 --run="command-line-example --help"
    ns3-dev-command-line-example-debug [Program Arguments] [General Arguments]
 
    CommandLine example program.
@@ -440,7 +441,7 @@ private:
     /**
      * \return The default value
      */
-    virtual std::string GetDefault () const;
+    virtual std::string GetDefault () const = 0;
   };  // class Item
 
   /**
@@ -582,7 +583,7 @@ private:
   std::size_t m_NNonOptions;            /**< The expected number of non-option arguments */
   std::size_t m_nonOptionCount;         /**< The number of actual non-option arguments seen so far. */
   std::string m_usage;                  /**< The Usage string */
-  std::string m_shortName;              /**< The source file name (without `.cc`), as would be given to `waf --run` */
+  std::string m_shortName;              /**< The source file name (without `.cc`), as would be given to `ns3 --run` */
 
 };  // class CommandLine
 
@@ -629,16 +630,16 @@ bool UserItemParse<uint8_t> (const std::string value, uint8_t & val);
 
 /**
  * \ingroup commandlinehelper
- * \brief Helper to specialize CommandLine::UserItem::GetDefault() on bool
+ * \brief Helper to specialize CommandLine::UserItem::GetDefault() on types
+ * needing special handling.
  *
  * \param [in] val The argument value
  * \return The string representation of value
  * @{
  */
-template <typename T>
-std::string GetDefault (const T & val);
-template <>
-std::string GetDefault<bool> (const bool & val);
+template <typename T> std::string GetDefault       (const T & val);
+template <>           std::string GetDefault<bool> (const bool & val);
+template <>           std::string GetDefault<Time> (const Time & val);
 /**@}*/
 
 }  // namespace CommandLineHelper
@@ -712,7 +713,6 @@ CommandLineHelper::GetDefault (const T & val)
   oss << val;
   return oss.str ();
 }
-
 
 template <typename T>
 bool

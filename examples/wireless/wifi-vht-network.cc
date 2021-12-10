@@ -125,8 +125,11 @@ int main (int argc, char *argv[])
               wifiApNode.Create (1);
 
               YansWifiChannelHelper channel = YansWifiChannelHelper::Default ();
-              YansWifiPhyHelper phy = YansWifiPhyHelper::Default ();
+              YansWifiPhyHelper phy;
               phy.SetChannel (channel.Create ());
+
+              phy.Set ("ChannelSettings", StringValue ("{0, " + std::to_string (channelWidth)
+                                                       + ", BAND_5GHZ, 0}"));
 
               WifiHelper wifi;
               wifi.SetStandard (WIFI_STANDARD_80211ac);
@@ -151,9 +154,6 @@ int main (int argc, char *argv[])
 
               NetDeviceContainer apDevice;
               apDevice = wifi.Install (phy, mac, wifiApNode);
-
-              // Set channel width
-              Config::Set ("/NodeList/*/DeviceList/*/$ns3::WifiNetDevice/Phy/ChannelWidth", UintegerValue (channelWidth));
 
               // Set guard interval
               Config::Set ("/NodeList/*/DeviceList/*/$ns3::WifiNetDevice/HtConfiguration/ShortGuardIntervalSupported", BooleanValue (sgi));

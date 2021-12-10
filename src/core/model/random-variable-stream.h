@@ -786,9 +786,6 @@ public:
   virtual uint32_t GetInteger (void);
 
 private:
-  /** The mean parameter for the Pareto distribution returned by this RNG stream. */
-  double m_mean;
-
   /** The scale parameter for the Pareto distribution returned by this RNG stream. */
   double m_scale;
 
@@ -1240,8 +1237,10 @@ private:
   /** True if the next value is valid. */
   bool m_nextValid;
 
-  /** The algorithm produces two values at a time. */
-  double m_next;
+  /** The algorithm produces two values at a time. Cache parameters for possible reuse.*/
+  double m_v2;
+  /** The algorithm produces two values at a time. Cache parameters for possible reuse.*/
+  double m_y;
 
 };  // class NormalRandomVariable
 
@@ -1634,8 +1633,10 @@ private:
   /** True if the next normal value is valid. */
   bool m_nextValid;
 
-  /** The algorithm produces two normal values at a time. */
-  double m_next;
+  /** The algorithm produces two values at a time. Cache parameters for possible reuse.*/
+  double m_v2;
+  /** The algorithm produces two values at a time. Cache parameters for possible reuse.*/
+  double m_y;
 
 };  // class GammaRandomVariable
 

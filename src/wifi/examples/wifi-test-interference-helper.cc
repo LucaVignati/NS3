@@ -126,8 +126,8 @@ private:
   struct Input m_input; ///< input
   bool m_droppedA; ///< flag to indicate whether packet A has been dropped
   bool m_droppedB; ///< flag to indicate whether packet B has been dropped
-  mutable uint64_t m_uidA;
-  mutable uint64_t m_uidB;
+  mutable uint64_t m_uidA; ///< UID to use for packet A
+  mutable uint64_t m_uidB; ///< UID to use for packet B
 };
 
 void
@@ -269,9 +269,9 @@ InterferenceExperiment::Run (struct InterferenceExperiment::Input input)
       rx->SetFrameCaptureModel (frameCaptureModel);
     }
 
-  m_txA->ConfigureStandardAndBand (input.standard, input.band);
-  m_txB->ConfigureStandardAndBand (input.standard, input.band);
-  rx->ConfigureStandardAndBand (input.standard, input.band);
+  m_txA->ConfigureStandard (input.standard);
+  m_txB->ConfigureStandard (input.standard);
+  rx->ConfigureStandard (input.standard);
 
   devA->SetPhy (m_txA);
   nodeA->AddDevice (devA);
@@ -280,9 +280,10 @@ InterferenceExperiment::Run (struct InterferenceExperiment::Input input)
   devRx->SetPhy (rx);
   nodeRx->AddDevice (devRx);
 
-  m_txA->SetChannelNumber (input.channelA);
-  m_txB->SetChannelNumber (input.channelB);
-  rx->SetChannelNumber (std::max (input.channelA, input.channelB));
+  m_txA->SetOperatingChannel (WifiPhy::ChannelTuple {input.channelA, 0, (int)(input.band), 0});
+  m_txB->SetOperatingChannel (WifiPhy::ChannelTuple {input.channelB, 0, (int)(input.band), 0});
+  rx->SetOperatingChannel (WifiPhy::ChannelTuple {std::max (input.channelA, input.channelB), 0,
+                                                  (int)(input.band), 0});
 
   rx->TraceConnectWithoutContext ("PhyRxDrop", MakeCallback (&InterferenceExperiment::PacketDropped, this));
 
@@ -392,10 +393,6 @@ int main (int argc, char *argv[])
   else if (str_preamble == "WIFI_PREAMBLE_HT_MF" && input.standard == WIFI_PHY_STANDARD_80211n)
     {
       input.preamble = WIFI_PREAMBLE_HT_MF;
-    }
-  else if (str_preamble == "WIFI_PREAMBLE_HT_GF" && (input.standard == WIFI_PHY_STANDARD_80211n))
-    {
-      input.preamble = WIFI_PREAMBLE_HT_GF;
     }
   else if (str_preamble == "WIFI_PREAMBLE_VHT_SU" && input.standard == WIFI_PHY_STANDARD_80211ac)
     {

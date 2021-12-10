@@ -111,6 +111,7 @@ DefaultChannelScheduler::DoDispose (void)
     {
       m_waitEvent.Cancel ();
     }
+  m_phy = 0;
   ChannelScheduler::DoDispose ();
 }
 
@@ -341,7 +342,7 @@ DefaultChannelScheduler::AssignDefaultCchAccess (void)
   Ptr<OcbWifiMac> cchMacEntity = m_device->GetMac (CCH);
   if (Now ().GetMilliSeconds() != 0)
     {
-	  m_phy->SetChannelNumber (CCH);
+	  m_phy->SetOperatingChannel (WifiPhy::ChannelTuple {CCH, 0, WIFI_PHY_BAND_5GHZ, 0});
 	  Time switchTime = m_phy->GetChannelSwitchDelay ();
 	  cchMacEntity->MakeVirtualBusy (switchTime);
     }
@@ -370,7 +371,7 @@ DefaultChannelScheduler::SwitchToNextChannel (uint32_t curChannelNumber, uint32_
   // second unattached current MAC entity from single PHY device
   curMacEntity->ResetWifiPhy ();
   // third switch PHY device from current channel to next channel;
-  m_phy->SetChannelNumber (nextChannelNumber);
+  m_phy->SetOperatingChannel (WifiPhy::ChannelTuple {nextChannelNumber, 0, WIFI_PHY_BAND_5GHZ, 0});
   // four attach next MAC entity to single PHY device
   nextMacEntity->SetWifiPhy (m_phy);
   // Here channel switch time is required to notify next MAC entity

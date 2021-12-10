@@ -60,6 +60,17 @@ public:
   virtual ~LrWpanNetDevice (void);
 
   /**
+   * How the pseudo-MAC address is built from
+   * the short address (XXXX) and the PanId (YYYY).
+   *
+   * See \RFC{4944} and \RFC{6282}.
+   */
+  enum PseudoMacAddressMode_e {
+    RFC4944,  //!< YYYY:0000:XXXX (with U/L bit set to local)
+    RFC6282   //!< 0200:0000:XXXX
+  };
+
+  /**
    * Set the MAC to be used by this NetDevice.
    *
    * \param mac the MAC to be used
@@ -204,7 +215,7 @@ private:
    * As a consequence, here we set it to 1.
    *
    * \param panId The PanID
-   * \param shortMac The Short MAC address
+   * \param shortAddr The Short MAC address
    * \return a Pseudo-Mac48Adress
    */
   Mac48Address BuildPseudoMacAddress (uint16_t panId, Mac16Address shortAddr) const;
@@ -260,6 +271,14 @@ private:
    * Upper layer callback used for notification of new data packet arrivals.
    */
   ReceiveCallback m_receiveCallback;
+
+  /**
+   * How the pseudo MAC address is created.
+   *
+   * According to \RFC{4944} the psudo-MAC is YYYY:0000:XXXX (with U/L bit set to local)
+   * According to \RFC{6282} the psudo-MAC is 0200:0000:XXXX
+   */
+  PseudoMacAddressMode_e m_pseudoMacMode;
 };
 
 } // namespace ns3

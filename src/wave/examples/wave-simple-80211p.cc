@@ -62,7 +62,7 @@ NS_LOG_COMPONENT_DEFINE ("WifiSimpleOcb");
  *  NodeContainer nodes;
  *  NetDeviceContainer devices;
  *  nodes.Create (2);
- *  YansWifiPhyHelper wifiPhy = YansWifiPhyHelper::Default ();
+ *  YansWifiPhyHelper wifiPhy;
  *  YansWifiChannelHelper wifiChannel = YansWifiChannelHelper::Default ();
  *  wifiPhy.SetChannel (wifiChannel.Create ());
  *  NqosWaveMacHelper wifi80211pMac = NqosWave80211pMacHelper::Default();
@@ -74,6 +74,10 @@ NS_LOG_COMPONENT_DEFINE ("WifiSimpleOcb");
  * MAC class that enables OCB mode.
  */
 
+/**
+ * Receive a packet
+ * \param socket Rx socket
+ */
 void ReceivePacket (Ptr<Socket> socket)
 {
   while (socket->Recv ())
@@ -82,6 +86,13 @@ void ReceivePacket (Ptr<Socket> socket)
     }
 }
 
+/**
+ * Geerate traffic
+ * \param socket Tx socket
+ * \param pktSize packet size
+ * \param pktCount number of packets
+ * \param pktInterval interval between packet generation
+ */
 static void GenerateTraffic (Ptr<Socket> socket, uint32_t pktSize,
                              uint32_t pktCount, Time pktInterval )
 {
@@ -121,7 +132,7 @@ int main (int argc, char *argv[])
   c.Create (2);
 
   // The below set of helpers will help us to put together the wifi NICs we want
-  YansWifiPhyHelper wifiPhy =  YansWifiPhyHelper::Default ();
+  YansWifiPhyHelper wifiPhy;
   YansWifiChannelHelper wifiChannel = YansWifiChannelHelper::Default ();
   Ptr<YansWifiChannel> channel = wifiChannel.Create ();
   wifiPhy.SetChannel (channel);

@@ -111,9 +111,9 @@ public:
  * - CA_DISORDER
  * - CA_RECOVERY
  * - CA_LOSS
+ * - CA_CWR
  *
- * Another one (CA_CWR) is present but not used. For more information, see
- * the TcpCongState_t documentation.
+ * For more information, see the TcpCongState_t documentation.
  *
  * Congestion control interface
  * ---------------------------
@@ -533,6 +533,7 @@ public:
   /**
    * \brief Checks for CE codepoint
    *
+   * \param tos the TOS byte to check
    * \return true if TOS has CE codepoint set; otherwise false
    */
   inline bool CheckEcnCe (uint8_t tos) const
@@ -567,7 +568,7 @@ public:
 
   /**
    * \brief Enable or disable pacing of the initial window
-   * \param pacing Boolean to enable or disable pacing of the initial window
+   * \param paceWindow Boolean to enable or disable pacing of the initial window
    */
   void SetPaceInitialWindow (bool paceWindow);
 
@@ -696,6 +697,7 @@ protected:
    * \param seq the sequence number of packet's TCP header
    * \param tcpHeaderSize the size of packet's TCP header
    * \param tcpPayloadSize the size of TCP payload
+   * \return true if the TCP segment is valid
    */
   bool IsValidTcpSegment (const SequenceNumber32 seq, const uint32_t tcpHeaderSize,
                           const uint32_t tcpPayloadSize);
@@ -1001,7 +1003,6 @@ protected:
    * \param oldHeadSequence value of HeadSequence before ack
    * updated with SACK information
    * \param currentDelivered The number of bytes (S)ACKed
-   * \return the number of bytes (newly) acked, or 0 if it was a dupack
    */
   virtual void ProcessAck (const SequenceNumber32 &ackNumber, bool scoreboardUpdated,
                            uint32_t currentDelivered, const SequenceNumber32 &oldHeadSequence);
@@ -1043,6 +1044,13 @@ protected:
    * \param currentDelivered Current (S)ACKed bytes
    */
   void DupAck (uint32_t currentDelivered);
+
+  /**
+   * \brief Enter CA_CWR state upon receipt of an ECN Echo
+   *
+   * \param currentDelivered Currently (S)ACKed bytes
+   */
+  void EnterCwr (uint32_t currentDelivered);
 
   /**
    * \brief Enter the CA_RECOVERY, and retransmit the head
@@ -1210,8 +1218,6 @@ protected:
 
   /**
    * \brief Dynamically update the pacing rate
-   *
-   * \param tcb internal congestion state
    */
   void UpdatePacingRate (void);
 

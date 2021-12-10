@@ -76,6 +76,7 @@ SOURCES = \
 	$(SRC)/wifi/doc/source/wifi-design.rst \
 	$(SRC)/wifi/doc/source/wifi-user.rst \
 	$(SRC)/wifi/doc/source/wifi-testing.rst \
+	$(SRC)/wifi/doc/source/wifi-changelog.rst \
 	$(SRC)/wifi/doc/source/wifi-references.rst \
 	$(SRC)/wimax/doc/wimax.rst \
 	$(SRC)/uan/doc/uan.rst \
@@ -90,7 +91,9 @@ SOURCES = \
 	$(SRC)/traffic-control/doc/codel.rst \
 	$(SRC)/traffic-control/doc/cobalt.rst \
 	$(SRC)/traffic-control/doc/fq-codel.rst \
+	$(SRC)/traffic-control/doc/fq-cobalt.rst \
 	$(SRC)/traffic-control/doc/pie.rst \
+	$(SRC)/traffic-control/doc/fq-pie.rst \
 	$(SRC)/traffic-control/doc/mq.rst \
 	$(SRC)/spectrum/doc/spectrum.rst \
 	$(SRC)/netanim/doc/animation.rst \
@@ -123,11 +126,31 @@ SOURCEFIGS = \
 	$(SRC)/internet/doc/routing.dia \
 	$(SRC)/internet/doc/routing-specialization.dia \
 	$(SRC)/internet/doc/figures/tcp-state-machine.png \
+	$(SRC)/internet/doc/figures/dctcp-10ms-50mbps-tcp-throughput.pdf \
+	$(SRC)/internet/doc/figures/dctcp-10ms-50mbps-tcp-throughput.png \
+	$(SRC)/internet/doc/figures/dctcp-80ms-50mbps-tcp-throughput.pdf \
+	$(SRC)/internet/doc/figures/dctcp-80ms-50mbps-tcp-throughput.png \
+	$(SRC)/internet/doc/figures/cubic-50ms-50mbps-tcp-cwnd-no-ecn.pdf \
+	$(SRC)/internet/doc/figures/cubic-50ms-50mbps-tcp-cwnd-no-ecn.png \
+	$(SRC)/internet/doc/figures/cubic-50ms-50mbps-tcp-cwnd-ecn.pdf \
+	$(SRC)/internet/doc/figures/cubic-50ms-50mbps-tcp-cwnd-ecn.png \
 	$(SRC)/internet/doc/figures/dce-linux-reno-vs-ns3-linux-reno.png \
 	$(SRC)/internet/doc/figures/dce-linux-reno-vs-ns3-new-reno.png \
 	$(SRC)/internet/doc/figures/ns3-new-reno-vs-ns3-linux-reno.png \
+	$(SRC)/internet/doc/figures/ns3-bbr-vs-linux-bbr.png \
 	$(SRC)/wifi/doc/source/figures/WifiArchitecture.dia \
+	$(SRC)/wifi/doc/source/figures/PhyEntityHierarchy.dia \
+	$(SRC)/wifi/doc/source/figures/WifiPpduHierarchy.dia \
+	$(SRC)/wifi/doc/source/figures/FemHierarchy.dia \
 	$(SRC)/wifi/doc/source/figures/snir.dia \
+	$(SRC)/wifi/doc/source/figures/ack-su-format.pdf \
+	$(SRC)/wifi/doc/source/figures/ack-su-format.png \
+	$(SRC)/wifi/doc/source/figures/mu-bar.pdf \
+	$(SRC)/wifi/doc/source/figures/mu-bar.png \
+	$(SRC)/wifi/doc/source/figures/aggr-mu-bar.pdf \
+	$(SRC)/wifi/doc/source/figures/aggr-mu-bar.png \
+	$(SRC)/wifi/doc/source/figures/ul-ofdma.pdf \
+	$(SRC)/wifi/doc/source/figures/ul-ofdma.png \
 	$(SRC)/wifi/doc/source/figures/clear-channel.eps \
 	$(SRC)/wifi/doc/source/figures/nist-frame-success-rate.eps \
 	$(SRC)/wifi/doc/source/figures/nist-frame-success-rate-n.eps \
@@ -135,6 +158,8 @@ SOURCEFIGS = \
 	$(SRC)/wifi/doc/source/figures/nist-frame-success-rate-ax.eps \
 	$(SRC)/wifi/doc/source/figures/wifi-11a-p-1500-adhoc-r-54-min-5-max-50-step-5-throughput.eps \
 	$(SRC)/wifi/doc/source/figures/wifi-11g-p-1500-infrastructure-r-6-min-5-max-50-step-5-throughput.eps \
+	$(SRC)/wifi/doc/source/figures/default-table-based-error-model-validation.eps \
+	$(SRC)/wifi/doc/source/figures/error-models-comparison.eps \
 	$(SRC)/wimax/doc/WimaxArchitecture.dia \
 	$(SRC)/lte/doc/source/figures/epc-ctrl-arch.dia \
 	$(SRC)/lte/doc/source/figures/epc-data-flow-dl.dia \
@@ -310,6 +335,7 @@ SOURCEFIGS = \
 	$(SRC)/netanim/doc/figures/RoutingTables.pdf \
 	$(SRC)/netanim/doc/figures/PacketTimeline.png \
 	$(SRC)/netanim/doc/figures/PacketTimeline.pdf \
+	$(SRC)/nix-vector-routing/doc/figures/nms.png \
 	$(SRC)/spectrum/doc/spectrum-channel-phy-interface.png \
 	$(SRC)/spectrum/doc/spectrum-channel-phy-interface.pdf \
 	$(SRC)/spectrum/doc/spectrum-analyzer-example.eps \
@@ -342,6 +368,9 @@ IMAGES_EPS = \
 	$(FIGURES)/routing.eps \
 	$(FIGURES)/routing-specialization.eps \
 	$(FIGURES)/WifiArchitecture.eps \
+	$(FIGURES)/PhyEntityHierarchy.eps \
+	$(FIGURES)/WifiPpduHierarchy.eps \
+	$(FIGURES)/FemHierarchy.eps \
 	$(FIGURES)/snir.eps \
 	$(FIGURES)/WimaxArchitecture.eps \
 	$(FIGURES)/epc-ctrl-arch.eps \
@@ -424,6 +453,8 @@ IMAGES_EPS = \
 	$(FIGURES)/nist-frame-success-rate-ax.eps \
 	$(FIGURES)/wifi-11a-p-1500-adhoc-r-54-min-5-max-50-step-5-throughput.eps \
 	$(FIGURES)/wifi-11g-p-1500-infrastructure-r-6-min-5-max-50-step-5-throughput.eps \
+	$(FIGURES)/default-table-based-error-model-validation.eps \
+	$(FIGURES)/error-models-comparison.eps \
 	$(FIGURES)/ca-rrc-reconf.eps \
 	$(FIGURES)/ca-lte-enb-net-device-changes.eps \
 	$(FIGURES)/ca-lte-ue-net-device-changes.eps \

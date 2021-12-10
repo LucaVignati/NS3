@@ -10,20 +10,28 @@ FIGURES = $(SOURCE)/figures
 
 IMAGES_DIA = \
 	$(FIGURES)/snir.dia \
-	$(FIGURES)/WifiArchitecture.dia
+	$(FIGURES)/WifiArchitecture.dia \
+	$(FIGURES)/PhyEntityHierarchy.dia \
+	$(FIGURES)/WifiPpduHierarchy.dia \
+	$(FIGURES)/FemHierarchy.dia
 
 # specify eps figures from which .png and .pdf figures need to be built
 
 IMAGES_EPS = \
 	$(FIGURES)/snir.eps \
 	$(FIGURES)/WifiArchitecture.eps \
+	$(FIGURES)/PhyEntityHierarchy.eps \
+	$(FIGURES)/WifiPpduHierarchy.eps \
+	$(FIGURES)/FemHierarchy.eps \
         $(FIGURES)/clear-channel.eps \
         $(FIGURES)/nist-frame-success-rate.eps \
         $(FIGURES)/nist-frame-success-rate-n.eps \
         $(FIGURES)/nist-frame-success-rate-ac.eps \
         $(FIGURES)/nist-frame-success-rate-ax.eps \
         $(FIGURES)/wifi-11a-p-1500-adhoc-r-54-min-5-max-50-step-5-throughput.eps \
-        $(FIGURES)/wifi-11g-p-1500-infrastructure-r-6-min-5-max-50-step-5-throughput.eps
+        $(FIGURES)/wifi-11g-p-1500-infrastructure-r-6-min-5-max-50-step-5-throughput.eps \
+        $(FIGURES)/default-table-based-error-model-validation.eps \
+        $(FIGURES)/error-models-comparison.eps
 
 # rescale pdf figures as necessary
 $(FIGURES)/snir.pdf_width = 3in

@@ -236,8 +236,8 @@ MacRxMiddle::IsDuplicate (const WifiMacHeader* hdr,
   return false;
 }
 
-Ptr<Packet>
-MacRxMiddle::HandleFragments (Ptr<Packet> packet, const WifiMacHeader *hdr,
+Ptr<const Packet>
+MacRxMiddle::HandleFragments (Ptr<const Packet> packet, const WifiMacHeader *hdr,
                               OriginatorRxStatus *originator)
 {
   NS_LOG_FUNCTION (packet << hdr << originator);
@@ -300,12 +300,8 @@ MacRxMiddle::Receive (Ptr<WifiMacQueueItem> mpdu)
 {
   NS_LOG_FUNCTION (*mpdu);
   const WifiMacHeader* hdr = &mpdu->GetHeader ();
-  Ptr<Packet> packet = mpdu->GetPacket ()->Copy ();
   NS_ASSERT (hdr->IsData () || hdr->IsMgt ());
-  if (!m_pcfCallback.IsNull ())
-    {
-      m_pcfCallback ();
-    }
+
   OriginatorRxStatus *originator = Lookup (hdr);
   /**
    * The check below is really unneeded because it can fail in a lot of
@@ -329,7 +325,7 @@ MacRxMiddle::Receive (Ptr<WifiMacQueueItem> mpdu)
                     ", frag=" << +hdr->GetFragmentNumber ());
       return;
     }
-  Ptr<Packet> aggregate = HandleFragments (packet, hdr, originator);
+  Ptr<const Packet> aggregate = HandleFragments (mpdu->GetPacket (), hdr, originator);
   if (aggregate == 0)
     {
       return;
@@ -341,7 +337,7 @@ MacRxMiddle::Receive (Ptr<WifiMacQueueItem> mpdu)
     {
       originator->SetSequenceControl (hdr->GetSequenceControl ());
     }
-  if (aggregate == packet)
+  if (aggregate == mpdu->GetPacket ())
     {
       m_callback (mpdu);
     }
@@ -353,12 +349,6 @@ MacRxMiddle::Receive (Ptr<WifiMacQueueItem> mpdu)
       // transmitted packets (i.e., with the same UID) to the receiver.
       m_callback (Create<WifiMacQueueItem> (aggregate, *hdr));
     }
-}
-
-void
-MacRxMiddle::SetPcfCallback (Callback<void> callback)
-{
-  m_pcfCallback = callback;
 }
 
 } //namespace ns3

@@ -1511,6 +1511,7 @@ PrintAttributeImplementations (std::ostream & os)
       { "Address",        "Address",        true,  "address.h"          },
       { "Box",            "Box",            true,  "box.h"              },
       { "DataRate",       "DataRate",       true,  "data-rate.h"        },
+      { "Length",         "Length",         true,  "length.h"           },
       { "IeMeshId",       "IeMeshId",       true,  "ie-dot11s-id.h"     },
       { "Ipv4Address",    "Ipv4Address",    true,  "ipv4-address.h"     },
       { "Ipv4Mask",       "Ipv4Mask",       true,  "ipv4-address.h"     },
@@ -1575,6 +1576,10 @@ PrintAttributeImplementations (std::ostream & os)
   PrintAttributeValueWithName (os, "Pair", "std::pair<A, B>", "pair.h");
   PrintMakeChecker            (os, "Pair",  "pair.h");
   
+  PrintAttributeValueSection  (os, "Tuple", false);
+  PrintAttributeValueWithName (os, "Tuple", "std::tuple<Args...>", "tuple.h");
+  PrintMakeChecker            (os, "Tuple", "tuple.h");
+
   PrintAttributeValueSection  (os, "AttributeContainer", false);
   PrintAttributeValueWithName (os, "AttributeContainer", "AttributeContainer", "attribute-container.h");
   PrintMakeChecker            (os, "AttributeContainer",  "attribute-container.h");

@@ -86,6 +86,26 @@ using a simple random mobility over the whole simulation area in
 presence of buildings might easily results in node moving in and out
 of buildings, regardless of the presence of walls.
 
+One dedicated buildings-aware mobility model is the
+``RandomWalk2dOutdoorMobilityModel``.  This class is similar to the
+``RandomWalk2dMobilityModel`` but avoids placing the trajectory
+on a path that would intersect a building wall.  If a boundary
+is encountered (either the bounding box or a building wall), the
+model rebounds with a random direction and speed that ensures that
+the trajectory stays outside the buildings.  An example program
+that demonstrates the use of this model is the
+``src/buildings/examples/outdoor-random-walk-example.cc`` which
+has an associated shell script to plot the traces generated.
+Another example program demonstrates how this outdoor mobility
+model can be used as the basis of a group mobility model, with
+the outdoor buildings-aware model serving as the parent or
+reference mobility model, and with additional nodes defining a
+child mobility model providing the offset from the reference
+mobility model.  This example,
+``src/buildings/example/outdoor-group-mobility-example.cc``,
+also has an associated shell script
+(``outdoor-group-mobility-animate.sh``) that can be used to generate
+an animated GIF of the group's movement.
 
 Place some nodes
 ****************
@@ -168,13 +188,18 @@ for the wireless module that you are considering (lte, wifi, wimax,
 etc.), so please refer to the documentation of that model for specific
 instructions.
 
-Building-aware channel condition model
-**************************************
+Building-aware channel condition models
+***************************************
 
 The class BuildingsChannelConditionModel implements a `channel condition model <propagation.html#channelconditionmodel>`_
 which determines the LOS/NLOS channel state based on the buildings deployed in
 the scenario.
 
+The classes ``ThreeGppV2vUrbanChannelConditionModel`` and 
+``ThreeGppV2vHighwayChannelConditionModel`` implement hybrid channel condition 
+models, specifically designed to model vehicular environments. 
+More information can be found in the :ref:`documentation 
+of the propagation module <sec-3gpp-v2v-ch-cond>`.
 
 Main configurable attributes
 ============================

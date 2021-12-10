@@ -66,17 +66,17 @@
  *
  * To display all the possible arguments and their defaults:
  * \code{.sh}
- *   ./waf --run "wifi-power-adaptation-distance --help"
+ *   ./ns3 --run "wifi-power-adaptation-distance --help"
  * \endcode
  *
  * Example usage (selecting Aparf rather than Parf):
  * \code{.sh}
- *   ./waf --run "wifi-power-adaptation-distance --manager=ns3::AparfWifiManager --outputFileName=aparf"
+ *   ./ns3 --run "wifi-power-adaptation-distance --manager=ns3::AparfWifiManager --outputFileName=aparf"
  * \endcode
  *
  * Another example (moving towards the AP):
  * \code{.sh}
- *   ./waf --run "wifi-power-adaptation-distance --manager=ns3::AparfWifiManager --outputFileName=aparf --stepsSize=-1 --STA1_x=200"
+ *   ./ns3 --run "wifi-power-adaptation-distance --manager=ns3::AparfWifiManager --outputFileName=aparf --stepsSize=-1 --STA1_x=200"
  * \endcode
  *
  * To enable the log of rate and power changes:
@@ -152,7 +152,7 @@ NodeStatistics::NodeStatistics (NetDeviceContainer aps, NetDeviceContainer stas)
   Ptr<WifiPhy> phy = wifiDevice->GetPhy ();
   myPhy = phy;
   SetupPhy (phy);
-  DataRate dataRate = DataRate (phy->GetMode (0).GetDataRate (phy->GetChannelWidth ()));
+  DataRate dataRate = DataRate (phy->GetDefaultMode ().GetDataRate (phy->GetChannelWidth ()));
   double power = phy->GetTxPowerEnd ();
   for (uint32_t j = 0; j < stas.GetN (); j++)
     {
@@ -173,17 +173,15 @@ NodeStatistics::NodeStatistics (NetDeviceContainer aps, NetDeviceContainer stas)
 void
 NodeStatistics::SetupPhy (Ptr<WifiPhy> phy)
 {
-  uint32_t nModes = phy->GetNModes ();
-  for (uint32_t i = 0; i < nModes; i++)
+  for (const auto & mode : phy->GetModeList ())
     {
-      WifiMode mode = phy->GetMode (i);
       WifiTxVector txVector;
       txVector.SetMode (mode);
       txVector.SetPreambleType (WIFI_PREAMBLE_LONG);
       txVector.SetChannelWidth (phy->GetChannelWidth ());
       DataRate dataRate = DataRate (mode.GetDataRate (phy->GetChannelWidth ()));
       Time time = phy->CalculateTxDuration (packetSize, txVector, phy->GetPhyBand ());
-      NS_LOG_DEBUG (i << " " << time.GetSeconds () << " " << dataRate);
+      NS_LOG_DEBUG (mode.GetUniqueName () << " " << time.GetSeconds () << " " << dataRate);
       timeTable.push_back (std::make_pair (time, dataRate));
     }
 }
@@ -339,7 +337,7 @@ int main (int argc, char *argv[])
   WifiHelper wifi;
   wifi.SetStandard (WIFI_STANDARD_80211a);
   WifiMacHelper wifiMac;
-  YansWifiPhyHelper wifiPhy = YansWifiPhyHelper::Default ();
+  YansWifiPhyHelper wifiPhy;
   YansWifiChannelHelper wifiChannel = YansWifiChannelHelper::Default ();
 
   wifiPhy.SetChannel (wifiChannel.Create ());

@@ -804,6 +804,10 @@ Ipv4L3Protocol::Send (Ptr<Packet> packet,
       NS_LOG_LOGIC ("Ipv4L3Protocol::Send case 1b:  passed in with route and valid gateway");
       int32_t interface = GetInterfaceForDevice (route->GetOutputDevice ());
       m_sendOutgoingTrace (ipHeader, packet, interface);
+      if (m_enableDpd && ipHeader.GetDestination ().IsMulticast ())
+        {
+          UpdateDuplicate (packet, ipHeader);
+        }
       SendRealOut (route, packet->Copy (), ipHeader);
       return; 
     }
@@ -877,7 +881,7 @@ Ipv4L3Protocol::Send (Ptr<Packet> packet,
   Ptr<Ipv4Route> newRoute;
   if (m_routingProtocol != 0)
     {
-      newRoute = m_routingProtocol->RouteOutput (packet, ipHeader, oif, errno_);
+      newRoute = m_routingProtocol->RouteOutput (pktCopyWithTags, ipHeader, oif, errno_);
     }
   else
     {

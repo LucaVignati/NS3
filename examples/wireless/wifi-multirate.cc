@@ -23,21 +23,21 @@
  * QUICK INSTRUCTIONS:
  *
  * To optimize build:
- * ./waf -d optimized configure
- * ./waf
+ * ./ns3 -d optimized configure
+ * ./ns3
  *
  * To compile:
- * ./waf --run wifi-multirate
+ * ./ns3 --run wifi-multirate
  *
  * To compile with command line(useful for varying parameters):
- * ./waf --run "wifi-multirate --totalTime=0.3s --rateManager=ns3::MinstrelWifiManager"
+ * ./ns3 --run "wifi-multirate --totalTime=0.3s --rateManager=ns3::MinstrelWifiManager"
  *
  * To turn on NS_LOG:
  * export NS_LOG=multirate=level_all
- * (can only view log if built with ./waf -d debug configure)
+ * (can only view log if built with ./ns3 -d debug configure)
  *
  * To debug:
- * ./waf --shell
+ * ./ns3 --shell
  * gdb ./build/debug/examples/wireless/wifi-multirate
  *
  * To view pcap files:
@@ -521,6 +521,7 @@ Experiment::Run (const WifiHelper &wifi, const YansWifiPhyHelper &wifiPhy,
 
   if (enablePcap)
     {
+      phy.SetPcapDataLinkType (WifiPhyHelper::DLT_IEEE802_11_RADIO);
       phy.EnablePcapAll (GetOutputFileName ());
     }
 
@@ -596,12 +597,12 @@ int main (int argc, char *argv[])
 
   WifiHelper wifi;
   WifiMacHelper wifiMac;
-  YansWifiPhyHelper wifiPhy = YansWifiPhyHelper::Default ();
+  YansWifiPhyHelper wifiPhy;
   YansWifiChannelHelper wifiChannel = YansWifiChannelHelper::Default ();
 
   wifiMac.SetType ("ns3::AdhocWifiMac",
                    "Ssid", StringValue ("Testbed"));
-  wifi.SetStandard (WIFI_STANDARD_holland);
+  wifi.SetStandard (WIFI_STANDARD_80211a);
   wifi.SetRemoteStationManager (experiment.GetRateManager ());
 
   NS_LOG_INFO ("Scenario: " << experiment.GetScenario ());

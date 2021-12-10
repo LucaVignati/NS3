@@ -557,12 +557,16 @@ DsrRouting::DoDispose (void)
       Ptr<WifiNetDevice> wifi = dev->GetObject<WifiNetDevice> ();
       if (wifi != 0)
         {
-          Ptr<WifiMac> mac = wifi->GetMac ()->GetObject<AdhocWifiMac> ();
+          Ptr<WifiMac> mac = wifi->GetMac ();
           if (mac != 0)
             {
-              mac->TraceDisconnectWithoutContext ("TxErrHeader",
+              Ptr<AdhocWifiMac> adhoc = mac->GetObject<AdhocWifiMac> ();
+              if (adhoc)
+                {
+                  adhoc->TraceDisconnectWithoutContext ("TxErrHeader",
                                                   m_routeCache->GetTxErrorCallback ());
-              m_routeCache->DelArpCache (m_ipv4->GetInterface (i)->GetArpCache ());
+                  m_routeCache->DelArpCache (m_ipv4->GetInterface (i)->GetArpCache ());
+                }
             }
         }
     }
@@ -3483,7 +3487,7 @@ DsrRouting::Receive (Ptr<Packet> p,
                      Ipv6Header const &ip,
                      Ptr<Ipv6Interface> incomingInterface)
 {
-  NS_LOG_FUNCTION (this << p << ip.GetSourceAddress () << ip.GetDestinationAddress () << incomingInterface);
+  NS_LOG_FUNCTION (this << p << ip.GetSource () << ip.GetDestination () << incomingInterface);
   return IpL4Protocol::RX_ENDPOINT_UNREACH;
 }
 

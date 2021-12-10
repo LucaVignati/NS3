@@ -31,7 +31,7 @@
 // There are a number of command-line options available to control
 // the default behavior.  The list of available command-line options
 // can be listed with the following command:
-// ./waf --run "wifi-sleep --help"
+// ./ns3 --run "wifi-sleep --help"
 //
 // Note that all ns-3 attributes (not just the ones exposed in the below
 // script) can be changed at command line; see the documentation.
@@ -39,7 +39,7 @@
 // This script can also be helpful to put the Wifi layer into verbose
 // logging mode; this command will turn on all wifi logging:
 //
-// ./waf --run "wifi-sleep --verbose=1"
+// ./ns3 --run "wifi-sleep --verbose=1"
 //
 // When you are done, you will notice four trace files in your directory:
 // two for the remaining energy on each node and two for the state transitions
@@ -129,10 +129,7 @@ int main (int argc, char *argv[])
     }
   wifi.SetStandard (WIFI_STANDARD_80211b);
 
-  YansWifiPhyHelper wifiPhy = YansWifiPhyHelper::Default ();
-  // ns-3 supports RadioTap and Prism tracing extensions for 802.11b
-  wifiPhy.SetPcapDataLinkType (WifiPhyHelper::DLT_IEEE802_11_RADIO);
-
+  YansWifiPhyHelper wifiPhy;
   wifiPhy.Set ("TxPowerStart", DoubleValue (txPowerStart));
   wifiPhy.Set ("TxPowerEnd", DoubleValue (txPowerEnd));
   wifiPhy.Set ("TxPowerLevels", UintegerValue (nTxPowerLevels));

@@ -205,7 +205,7 @@ Ptr<Ipv4Route> Rip::RouteOutput (Ptr<Packet> p, const Ipv4Header &header, Ptr<Ne
       NS_LOG_LOGIC ("RouteOutput (): Multicast destination");
     }
 
-  rtentry = Lookup (destination, oif);
+  rtentry = Lookup (destination, true, oif);
   if (rtentry)
     {
       sockerr = Socket::ERROR_NOTERROR;
@@ -276,7 +276,7 @@ bool Rip::RouteInput (Ptr<const Packet> p, const Ipv4Header &header, Ptr<const N
     }
   // Next, try to find a route
   NS_LOG_LOGIC ("Unicast destination");
-  Ptr<Ipv4Route> rtentry = Lookup (header.GetDestination ());
+  Ptr<Ipv4Route> rtentry = Lookup (header.GetDestination (), false);
 
   if (rtentry != 0)
     {
@@ -493,10 +493,15 @@ void Rip::PrintRoutingTable (Ptr<OutputStreamWrapper> stream, Time::Unit unit) c
   NS_LOG_FUNCTION (this << stream);
 
   std::ostream* os = stream->GetStream ();
+  // Copy the current ostream state
+  std::ios oldState (nullptr);
+  oldState.copyfmt (*os);
+
+  *os << std::resetiosflags (std::ios::adjustfield) << std::setiosflags (std::ios::left);
 
   *os << "Node: " << m_ipv4->GetObject<Node> ()->GetId ()
       << ", Time: " << Now().As (unit)
-      << ", Local time: " << GetObject<Node> ()->GetLocalTime ().As (unit)
+      << ", Local time: " << m_ipv4->GetObject<Node> ()->GetLocalTime ().As (unit)
       << ", IPv4 RIP table" << std::endl;
 
   if (!m_routes.empty ())
@@ -511,11 +516,11 @@ void Rip::PrintRoutingTable (Ptr<OutputStreamWrapper> stream, Time::Unit unit) c
             {
               std::ostringstream dest, gw, mask, flags;
               dest << route->GetDest ();
-              *os << std::setiosflags (std::ios::left) << std::setw (16) << dest.str ();
+              *os << std::setw (16) << dest.str ();
               gw << route->GetGateway ();
-              *os << std::setiosflags (std::ios::left) << std::setw (16) << gw.str ();
+              *os << std::setw (16) << gw.str ();
               mask << route->GetDestNetworkMask ();
-              *os << std::setiosflags (std::ios::left) << std::setw (16) << mask.str ();
+              *os << std::setw (16) << mask.str ();
               flags << "U";
               if (route->IsHost ())
                 {
@@ -525,8 +530,8 @@ void Rip::PrintRoutingTable (Ptr<OutputStreamWrapper> stream, Time::Unit unit) c
                 {
                   flags << "GS";
                 }
-              *os << std::setiosflags (std::ios::left) << std::setw (6) << flags.str ();
-              *os << std::setiosflags (std::ios::left) << std::setw (7) << int(route->GetRouteMetric ());
+              *os << std::setw (6) << flags.str ();
+              *os << std::setw (7) << int(route->GetRouteMetric ());
               // Ref ct not implemented
               *os << "-" << "      ";
               // Use not implemented
@@ -544,6 +549,8 @@ void Rip::PrintRoutingTable (Ptr<OutputStreamWrapper> stream, Time::Unit unit) c
         }
     }
   *os << std::endl;
+  // Restore the previous ostream state
+  (*os).copyfmt (oldState);
 }
 
 void Rip::DoDispose ()
@@ -575,8 +582,7 @@ void Rip::DoDispose ()
   Ipv4RoutingProtocol::DoDispose ();
 }
 
-
-Ptr<Ipv4Route> Rip::Lookup (Ipv4Address dst, Ptr<NetDevice> interface)
+Ptr<Ipv4Route> Rip::Lookup (Ipv4Address dst, bool setSource, Ptr<NetDevice> interface)
 {
   NS_LOG_FUNCTION (this << dst << interface);
 
@@ -626,13 +632,16 @@ Ptr<Ipv4Route> Rip::Lookup (Ipv4Address dst, Ptr<NetDevice> interface)
                   uint32_t interfaceIdx = route->GetInterface ();
                   rtentry = Create<Ipv4Route> ();
 
-                  if (route->GetDest ().IsAny ()) /* default route */
+                  if (setSource)
                     {
-                      rtentry->SetSource (m_ipv4->SourceAddressSelection (interfaceIdx, route->GetGateway ()));
-                    }
-                  else
-                    {
-                      rtentry->SetSource (m_ipv4->SourceAddressSelection (interfaceIdx, route->GetDest ()));
+                      if (route->GetDest ().IsAny ()) /* default route */
+                        {
+                          rtentry->SetSource (m_ipv4->SourceAddressSelection (interfaceIdx, route->GetGateway ()));
+                        }
+                      else
+                        {
+                          rtentry->SetSource (m_ipv4->SourceAddressSelection (interfaceIdx, route->GetDest ()));
+                        }
                     }
 
                   rtentry->SetDestination (route->GetDest ());

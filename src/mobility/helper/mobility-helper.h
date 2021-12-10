@@ -224,38 +224,47 @@ public:
    * \param stream an output stream wrapper
    * \param nodeid the id of the node to generate ascii output for.
    *
-   * Enable ascii output on the mobility model associated to the
-   * specified nodeid and dump that to the specified stdc++ output 
-   * stream.
+   * Enable ascii output to record course changes from the mobility model
+   * associated with the specified nodeid and dump that to the specified output 
+   * stream.  If the Node does not have a MobilityModel aggregated,
+   * this method will not produce any output.
    */
   static void EnableAscii (Ptr<OutputStreamWrapper> stream, uint32_t nodeid);
   /**
    * \param stream an output stream wrapper
    * \param n node container
    *
-   * Enable ascii output on the mobility model associated each of
-   * the nodes in the input container and dump that to the 
-   * specified stdc++ output stream.
+   * Enable ascii output to record course changes from the mobility models
+   * associated to the the nodes in the input container and dump that to the 
+   * specified output stream.  Nodes that do not have a MobilityModel
+   * aggregated will not result in any output.
    */
   static void EnableAscii (Ptr<OutputStreamWrapper> stream, NodeContainer n);
   /**
    * \param stream an output stream wrapper
    *
-   * Enable ascii output on the mobility model associated
-   * every node in the system and dump that to the specified 
-   * stdc++ output stream.
+   * Enable ascii output to record course changes from the mobility models
+   * associated to every node in the system and dump that to the specified 
+   * output stream.  Nodes that do not have a MobilityModel aggregated
+   * will not result in any output.
    */
   static void EnableAsciiAll (Ptr<OutputStreamWrapper> stream);
   /**
    * Assign a fixed random variable stream number to the random variables
-   * used by the mobility models (including any position allocators assigned
-   * specifically to the model) on these nodes. Return the number of 
+   * used by the mobility models on these nodes. Return the number of 
    * streams (possibly zero) that have been assigned. The Install() 
    * method should have previously been called by the user.
    *
-   * \param stream first stream index to use
+   * \note If the PositionAllocator used contains random variables, they
+   * will not be affected by this call to AssignStreams because they are
+   * used earlier during Install() time.  If the user needs to assign a fixed
+   * stream number to a PositionAllocator used with this helper, the user
+   * should instantiate it outside of the helper, call AssignStreams() on
+   * it, and then pass the pointer of it to this helper.
+   *
    * \param c NodeContainer of the set of nodes for which the MobilityModels
    * should be modified to use a fixed stream
+   * \param stream first stream index to use
    * \return the number of stream indices assigned by this helper
    */
   int64_t AssignStreams (NodeContainer c, int64_t stream);

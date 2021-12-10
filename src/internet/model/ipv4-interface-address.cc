@@ -39,6 +39,10 @@ Ipv4InterfaceAddress::Ipv4InterfaceAddress (Ipv4Address local, Ipv4Mask mask)
 {
   NS_LOG_FUNCTION (this << local << mask);
   m_local = local;
+  if (m_local == Ipv4Address::GetLoopback ())
+    {
+      m_scope = HOST;
+    }
   m_mask = mask;
   m_broadcast = Ipv4Address (local.Get () | (~mask.Get ()));
 }
@@ -53,18 +57,30 @@ Ipv4InterfaceAddress::Ipv4InterfaceAddress (const Ipv4InterfaceAddress &o)
   NS_LOG_FUNCTION (this << &o);
 }
 
-void 
+void
 Ipv4InterfaceAddress::SetLocal (Ipv4Address local)
 {
   NS_LOG_FUNCTION (this << local);
   m_local = local;
 }
 
-Ipv4Address 
+void
+Ipv4InterfaceAddress::SetAddress (Ipv4Address address)
+{
+  SetLocal (address);
+}
+
+Ipv4Address
 Ipv4InterfaceAddress::GetLocal (void) const
 {
   NS_LOG_FUNCTION (this);
-  return m_local; 
+  return m_local;
+}
+
+Ipv4Address
+Ipv4InterfaceAddress::GetAddress (void) const
+{
+  return GetLocal ();
 }
 
 void 
@@ -107,6 +123,16 @@ Ipv4InterfaceAddress::GetScope (void) const
 {
   NS_LOG_FUNCTION (this);
   return m_scope;
+}
+
+bool Ipv4InterfaceAddress::IsInSameSubnet (const Ipv4Address b) const
+{
+  Ipv4Address aAddr = m_local;
+  aAddr = aAddr.CombineMask(m_mask);
+  Ipv4Address bAddr = b;
+  bAddr = bAddr.CombineMask(m_mask);
+
+  return (aAddr == bAddr);
 }
 
 bool 
