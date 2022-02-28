@@ -153,7 +153,7 @@ main (int argc, char *argv[])
   nrHelper->SetEpcHelper (epcHelper);
 
   Ptr<IdealBeamformingHelper> idealBeamformingHelper = CreateObject <IdealBeamformingHelper> ();
-  nrHelper->SetIdealBeamformingHelper (idealBeamformingHelper);
+  nrHelper->SetBeamformingHelper (idealBeamformingHelper);
 
   /*
    * Spectrum configuration. We create a single operational band and configure the scenario.
@@ -242,7 +242,7 @@ main (int argc, char *argv[])
   allBwps = CcBwpCreator::GetAllBwps ({band});
 
   // Configure ideal beamforming method
-  idealBeamformingHelper->SetAttribute ("IdealBeamformingMethod", TypeIdValue (DirectPathBeamforming::GetTypeId ()));
+  idealBeamformingHelper->SetAttribute ("BeamformingMethod", TypeIdValue (DirectPathBeamforming::GetTypeId ()));
 
   epcHelper->SetAttribute ("S1uLinkDelay", TimeValue (MilliSeconds (0)));
 
@@ -252,12 +252,12 @@ main (int argc, char *argv[])
   // Antennas for the UEs
   nrHelper->SetUeAntennaAttribute ("NumRows", UintegerValue (2));
   nrHelper->SetUeAntennaAttribute ("NumColumns", UintegerValue (4));
-  nrHelper->SetUeAntennaAttribute ("IsotropicElements", BooleanValue (true));
+  //nrHelper->SetUeAntennaAttribute ("IsotropicElements", BooleanValue (true));
 
   // Antennas for the gNbs
   nrHelper->SetGnbAntennaAttribute ("NumRows", UintegerValue (4));
   nrHelper->SetGnbAntennaAttribute ("NumColumns", UintegerValue (8));
-  nrHelper->SetGnbAntennaAttribute ("IsotropicElements", BooleanValue (true));
+  //nrHelper->SetGnbAntennaAttribute ("IsotropicElements", BooleanValue (true));
 
   nrHelper->SetGnbPhyAttribute ("TxPower", DoubleValue (30));
   nrHelper->SetUePhyAttribute ("TxPower", DoubleValue (10));

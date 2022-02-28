@@ -41,6 +41,8 @@ version.cache
 
 .vscode*
 5G-Scenario1.xml
+5G-Scenario2.xml
+4G-Scenario2.xml
 RxPacketTrace.txt
 RxedGnbMacCtrlMsgsTrace.txt
 RxedGnbPhyCtrlMsgsTrace.txt
@@ -65,6 +67,7 @@ ns3_multiple.sh
 outputProva1
 plot.sh
 transferFile.txt
+simulationLog.txt
 graphs/
 .idea/
 cmake_cache/

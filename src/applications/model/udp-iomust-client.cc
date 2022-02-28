@@ -323,7 +323,7 @@ UdpIomustClient::Send (void)
 
       int64_t now = Simulator::Now().GetMicroSeconds();
       memcpy(&m_data[5], &now, sizeof(now));
-      memcpy(&m_data[5 + sizeof(now)], &m_sent, sizeof(m_sent));
+      memcpy(&m_data[5 + sizeof(now)], &m_sent, sizeof(m_sent - 5));
 
       p = Create<Packet> (m_data, m_dataSize);
     }

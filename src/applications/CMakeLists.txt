@@ -7,6 +7,7 @@ set(source_files
     helper/three-gpp-http-helper.cc
     helper/udp-client-server-helper.cc
     helper/udp-echo-helper.cc
+    helper/udp-iomust-helper.cc
     model/application-packet-probe.cc
     model/bulk-send-application.cc
     model/onoff-application.cc
@@ -22,6 +23,9 @@ set(source_files
     model/udp-client.cc
     model/udp-echo-client.cc
     model/udp-echo-server.cc
+    model/udp-forward-server.cc
+    model/udp-iomust-client.cc
+    model/udp-iomust-server.cc
     model/udp-server.cc
     model/udp-trace-client.cc
 )
@@ -33,6 +37,7 @@ set(header_files
     helper/three-gpp-http-helper.h
     helper/udp-client-server-helper.h
     helper/udp-echo-helper.h
+    helper/udp-iomust-helper.h
     model/application-packet-probe.h
     model/bulk-send-application.h
     model/onoff-application.h
@@ -48,6 +53,9 @@ set(header_files
     model/udp-client.h
     model/udp-echo-client.h
     model/udp-echo-server.h
+    model/udp-forward-server.h
+    model/udp-iomust-client.h
+    model/udp-iomust-server.h
     model/udp-server.h
     model/udp-trace-client.h
 )

@@ -76,6 +76,7 @@ main (int argc, char *argv[])
   int nPackets;
   uint32_t packetSize = 280;
   uint16_t thrsLatency = 20*1000;
+  uint32_t mixServerTimeout = 15;
   std::string comment = "";
   bool generateRem = false;
   int seed = 0;
@@ -149,7 +150,7 @@ main (int argc, char *argv[])
   nrHelper->SetEpcHelper (epcHelper);
 
   Ptr<IdealBeamformingHelper> idealBeamformingHelper = CreateObject <IdealBeamformingHelper> ();
-  nrHelper->SetIdealBeamformingHelper (idealBeamformingHelper);
+  nrHelper->SetBeamformingHelper (idealBeamformingHelper);
 
   /*
    * Spectrum configuration. We create a single operational band and configure the scenario.
@@ -238,7 +239,7 @@ main (int argc, char *argv[])
   allBwps = CcBwpCreator::GetAllBwps ({band});
 
   // Configure ideal beamforming method
-  idealBeamformingHelper->SetAttribute ("IdealBeamformingMethod", TypeIdValue (DirectPathBeamforming::GetTypeId ()));
+  idealBeamformingHelper->SetAttribute ("BeamformingMethod", TypeIdValue (DirectPathBeamforming::GetTypeId ()));
 
   epcHelper->SetAttribute ("S1uLinkDelay", TimeValue (MilliSeconds (0)));
 
@@ -248,12 +249,12 @@ main (int argc, char *argv[])
   // Antennas for the UEs
   nrHelper->SetUeAntennaAttribute ("NumRows", UintegerValue (2));
   nrHelper->SetUeAntennaAttribute ("NumColumns", UintegerValue (4));
-  nrHelper->SetUeAntennaAttribute ("IsotropicElements", BooleanValue (true));
+  //nrHelper->SetUeAntennaAttribute ("IsotropicElements", BooleanValue (true));
 
   // Antennas for the gNbs
   nrHelper->SetGnbAntennaAttribute ("NumRows", UintegerValue (4));
   nrHelper->SetGnbAntennaAttribute ("NumColumns", UintegerValue (8));
-  nrHelper->SetGnbAntennaAttribute ("IsotropicElements", BooleanValue (true));
+  //nrHelper->SetGnbAntennaAttribute ("IsotropicElements", BooleanValue (true));
 
   nrHelper->SetGnbPhyAttribute ("TxPower", DoubleValue (30));
   nrHelper->SetUePhyAttribute ("TxPower", DoubleValue (10));
@@ -439,8 +440,10 @@ main (int argc, char *argv[])
   nrHelper->AttachToClosestEnb (ueNetDev, enbNetDev);
 
   // Install and start applications on UEs and remote host
-  UdpForwardServerHelper udpForwardServer(9);
-  ApplicationContainer serverApps = udpForwardServer.Install (remoteHost);
+  UdpMixServerHelper udpMixServer(9);
+  udpMixServer.SetAttribute("TransmissionPeriod", TimeValue(Seconds(interPacketInterval)));
+  udpMixServer.SetAttribute("Timeout", TimeValue(MilliSeconds(mixServerTimeout)));
+  ApplicationContainer serverApps = udpMixServer.Install (remoteHost);
   serverApps.Start (Seconds (startTime));
   serverApps.Stop (Seconds (endTime));
 
