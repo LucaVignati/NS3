@@ -112,9 +112,10 @@ IoMusTPacket::DoDelete()
 {
 }
 
-Stream::Stream (Address client_address)
+Stream::Stream (Address client_address, Address packet_address)
 {
   address = client_address;
+  this->packet_address = packet_address;
   send_buffer.fill(NULL);
 }
 
@@ -150,11 +151,16 @@ Stream::get_address(void)
   return address;
 }
 
+Address
+Stream::get_packet_address(void)
+{
+  return packet_address;
+}
+
 void
 Stream::set_offset(int o)
 {
   offset = o;
-  synchronized = true;
 }
 
 int
@@ -297,22 +303,24 @@ UdpMixServer::StopApplication ()
 void
 UdpMixServer::send_packets(int seq_n)
 {
-  std::vector<Ptr<IoMusTPacket>> packets;
   Ptr<IoMusTPacket> p;
-  Ptr<Stream> stream;
-  for (long unsigned int i=0; i < streams.size(); i++)
+  for (Ptr<Stream> stream : streams)
   {
-    stream = &streams.at(i);
     p = stream->get_packet(seq_n);
     if (p == NULL)
     {
-      p = &packet_storage[index % array_size];
-      IoMusTPacket new_packet = IoMusTPacket(p, seq_n);
-      packet_storage[++index % array_size] = new_packet;
-      p = &packet_storage[index % array_size];
+      for (Ptr<Stream> s : streams)
+      {
+        p = s->get_packet(seq_n);
+        if (p != NULL) break;
+      }
+      p = new IoMusTPacket(p, seq_n);
     }
     int (Socket::*fp)(Ptr<ns3::Packet>, uint32_t, const ns3::Address&) = &ns3::Socket::SendTo;
-    Simulator::Schedule(Seconds(0.), fp, socket, p->get_packet(), 0, stream->get_address());
+    Simulator::Schedule(Seconds(0.), fp, socket, p->get_packet(), 0, stream->get_packet_address());
+  }
+  for (Ptr<Stream> stream : streams)
+  {
     stream->set_packet_sent(seq_n);
   }
 }
@@ -323,9 +331,8 @@ UdpMixServer::check_and_send_packets(int seq_n)
   Ptr<IoMusTPacket> p;
   bool already_sent = true;
   Ptr<Stream> stream;
-  for (long unsigned int i=0; i < streams.size(); i++)
+  for (Ptr<Stream> stream : streams)
   {
-    stream = &streams.at(i);
     p = stream->get_packet(seq_n);
     if (p != NULL)
     {
@@ -336,6 +343,7 @@ UdpMixServer::check_and_send_packets(int seq_n)
   {
     send_packets(seq_n);
   }
+  oldest_seq_n = seq_n;
 }
 
 Ptr<Stream>
@@ -345,8 +353,8 @@ UdpMixServer::add_stream(Address client_address, Ptr<IoMusTPacket> packet)
   int seq_n = packet->get_seq_n();
   Time stream_reference_time = send_time - seq_n * packet_transmission_period;
   int offset;
-  streams.push_back(Stream(client_address));
-  Ptr<Stream> stream = &streams.back();
+  streams.push_back(new Stream(client_address, packet->get_to_address()));
+  Ptr<Stream> stream = streams.back();
   
   if (reference_time != MicroSeconds(0))
   {
@@ -365,26 +373,28 @@ void
 UdpMixServer::add_packet(Ptr<IoMusTPacket> packet, Address from, Ptr<Stream> stream)
 {
   int seq_n = stream->add_packet(packet);
-  Ptr<IoMusTPacket> p;
-  Ptr<Stream> s;
-  bool packets_ready = true;
-  for (long unsigned int i=0; i < streams.size(); i++)
+  
+  if (seq_n >= oldest_seq_n)
   {
-    s = &streams.at(i);
-    p = s->get_packet(seq_n);
-    if (p == NULL)
+    Ptr<IoMusTPacket> p;
+    bool packets_ready = true;
+    for (Ptr<Stream> stream : streams)
     {
-      packets_ready = false;
-      break;
+      p = stream->get_packet(seq_n);
+      if (p == NULL)
+      {
+        packets_ready = false;
+        break;
+      }
     }
-  }
-  if (packets_ready)
-  {
-    send_packets(seq_n);
-  }
-  else
-  {
-    Simulator::Schedule(timeout, &ns3::UdpMixServer::check_and_send_packets, this, seq_n);
+    if (packets_ready)
+    {
+      send_packets(seq_n);
+    }
+    else
+    {
+      Simulator::Schedule(timeout, &ns3::UdpMixServer::check_and_send_packets, this, seq_n);
+    }
   }
 }
 
@@ -420,9 +430,7 @@ UdpMixServer::HandleRead (Ptr<Socket> socket)
                        Inet6SocketAddress::ConvertFrom (from).GetPort ());
         }
 
-      packet_storage[++index % array_size] = IoMusTPacket(packet);
-      Ptr<IoMusTPacket> packet_wrapper = &packet_storage[index % array_size];
-
+      Ptr<IoMusTPacket> packet_wrapper = new IoMusTPacket(packet);
 
       if (first_packet)
       {
@@ -431,9 +439,8 @@ UdpMixServer::HandleRead (Ptr<Socket> socket)
       }
       new_stream = true;
       Ptr<Stream> stream;
-      for (long unsigned int i=0; i < streams.size(); i++)
+      for (Ptr<Stream> stream : streams)
       {
-        stream = &streams.at(i);
         Address client_address = stream->get_address();
         if (client_address == from)
         {

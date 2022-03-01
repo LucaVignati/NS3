@@ -76,6 +76,7 @@ main (int argc, char *argv[])
   int nPackets;
   uint32_t packetSize = 280;
   uint16_t thrsLatency = 20*1000;
+  uint32_t mixServerTimeout = 15;
   std::string comment = "";
   bool generateRem = false;
   int seed = 0;
@@ -183,9 +184,9 @@ main (int argc, char *argv[])
     std::cout << "Band " << u + 1 << ": " << bands[u] << std::endl;
   }
 
-  NodeContainer trafficNode;
-  trafficNode.Create(1);
-  ueNodes.Add(trafficNode);  
+  // NodeContainer trafficNode;
+  // trafficNode.Create(1);
+  // ueNodes.Add(trafficNode);  
 
   /*Ptr<GridBuildingAllocator>  gridBuildingAllocator;
   gridBuildingAllocator = CreateObject<GridBuildingAllocator> ();
@@ -248,10 +249,10 @@ main (int argc, char *argv[])
   mobility.Install(ueNodes);
   //BuildingsHelper::Install(ueNodes);
 
-  positionAlloc = CreateObject<ListPositionAllocator> ();
-  positionAlloc->Add (Vector(squareWidth/4, squareWidth/2, 1));
-  mobility.SetPositionAllocator(positionAlloc);
-  mobility.Install(trafficNode);
+  // positionAlloc = CreateObject<ListPositionAllocator> ();
+  // positionAlloc->Add (Vector(squareWidth/4, squareWidth/2, 1));
+  // mobility.SetPositionAllocator(positionAlloc);
+  // mobility.Install(trafficNode);
   //BuildingsHlper::Install(trafficNode);
 
   positionAlloc = CreateObject<ListPositionAllocator> ();
@@ -296,20 +297,22 @@ main (int argc, char *argv[])
 
 
   // Install and start applications on UEs and remote host
-  UdpForwardServerHelper udpForwardServer(9);
-  ApplicationContainer serverApps = udpForwardServer.Install (remoteHost);
+  UdpMixServerHelper udpMixServer(9);
+  udpMixServer.SetAttribute("TransmissionPeriod", TimeValue(Seconds(interPacketInterval)));
+  udpMixServer.SetAttribute("Timeout", TimeValue(MilliSeconds(mixServerTimeout)));
+  ApplicationContainer serverApps = udpMixServer.Install (remoteHost);
   serverApps.Start (Seconds (startTime));
   serverApps.Stop (Seconds (endTime));
 
   // Install and start traffic server on traffic UE
-  Ptr<Node> node = trafficNode.Get(0);
-  Ptr<NetDevice> trafficDevice = node->GetDevice(0);
-  int32_t interface = node->GetObject<Ipv4>()->GetInterfaceForDevice(trafficDevice);
-  Ipv4Address address = node->GetObject<Ipv4>()->GetAddress(interface, 0).GetLocal();
-  UdpServerHelper udpTrafficServer(10);
-  ApplicationContainer trafficServerApps = udpTrafficServer.Install(node);
-  trafficServerApps.Start (Seconds (startTime));
-  trafficServerApps.Stop (Seconds (endTime));
+  // Ptr<Node> node = trafficNode.Get(0);
+  // Ptr<NetDevice> trafficDevice = node->GetDevice(0);
+  // int32_t interface = node->GetObject<Ipv4>()->GetInterfaceForDevice(trafficDevice);
+  // Ipv4Address address = node->GetObject<Ipv4>()->GetAddress(interface, 0).GetLocal();
+  // UdpServerHelper udpTrafficServer(10);
+  // ApplicationContainer trafficServerApps = udpTrafficServer.Install(node);
+  // trafficServerApps.Start (Seconds (startTime));
+  // trafficServerApps.Stop (Seconds (endTime));
 
   int j;
   //uint64_t e2eLatVect[numberOfueNodes][nPackets];
@@ -357,13 +360,13 @@ main (int argc, char *argv[])
   }
 
   // Start traffic client on traffic remote host
-  UdpClientHelper udpTrafficClient(address, 10);
-  udpTrafficClient.SetAttribute("MaxPackets", UintegerValue(10000000));
-  udpTrafficClient.SetAttribute("PacketSize", UintegerValue(14000)); // 14x10^3 bytes
-  udpTrafficClient.SetAttribute ("Interval", TimeValue (Seconds (interPacketInterval)));
-  ApplicationContainer trafficClientApps = udpTrafficClient.Install(remoteHost);
-  trafficClientApps.Start (Seconds (startTime));
-  trafficClientApps.Stop (Seconds (endTime));
+  // UdpClientHelper udpTrafficClient(address, 10);
+  // udpTrafficClient.SetAttribute("MaxPackets", UintegerValue(10000000));
+  // udpTrafficClient.SetAttribute("PacketSize", UintegerValue(14000)); // 14x10^3 bytes
+  // udpTrafficClient.SetAttribute ("Interval", TimeValue (Seconds (interPacketInterval)));
+  // ApplicationContainer trafficClientApps = udpTrafficClient.Install(remoteHost);
+  // trafficClientApps.Start (Seconds (startTime));
+  // trafficClientApps.Stop (Seconds (endTime));
 
   lteHelper->EnableTraces ();
   // Uncomment to enable PCAP tracing
