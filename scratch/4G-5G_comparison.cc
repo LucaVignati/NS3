@@ -29,6 +29,43 @@
 
 using namespace ns3;
 
+void populate_positions(Ptr<ListPositionAllocator> positionAlloc, int numberOfueNodes, std::vector<Vector> enbs, int radius, double height, std::string filename, bool traffic)
+{
+    int enbIndex, rho;
+    double theta;
+    bool redo;
+    Vector3D ue;
+    std::vector<Vector> ues;
+    std::ofstream positionsFile;
+    positionsFile.open(filename.c_str(), std::ios_base::app);
+    for (Vector enb : enbs)
+        positionsFile << "eNB " << enb.x << " " << enb.y << " " << enb.z << std::endl;
+    
+    for (uint16_t i = 0; i < numberOfueNodes; i++)
+    {
+        redo = true;
+        while (redo)
+        {
+            redo = false;
+            rho = rand() % radius + 1;
+            theta = static_cast<double>(rand() % 628) / 100;
+            enbIndex = rand() % enbs.size();
+            ue.x = static_cast<int>(rho * cos(theta) + enbs[enbIndex].x);
+            ue.y = static_cast<int>(rho * sin(theta) + enbs[enbIndex].y);
+            ue.z = height;
+            for (Vector u : ues)
+            {
+                if (ue.x == u.x && ue.y == u.x && ue.z == u.x)
+                    redo = true;
+            }
+        }
+        ues.push_back(ue);
+        positionAlloc->Add (ue);
+        positionsFile << "UE " << ue.x << " " << ue.y << " " << ue.z << std::endl;
+    }
+    positionsFile.close();
+}
+
 int
 main (int argc, char *argv[])
 {
@@ -49,7 +86,8 @@ main (int argc, char *argv[])
     uint32_t mixServerTimeout = 15;
     std::string comment = "";
     int seed = 0;
-    int cell2cellDistance = 50000;
+    int cell2cellDistance = 500;
+    int enbHeight = 25;
     int numerology = 2;
     double frequency = 2035e6; // central frequency
     double bwpBandwidth = 20e6; //bandwidth of the UL and the DL
@@ -111,9 +149,29 @@ main (int argc, char *argv[])
                 numerology);
     cmd.Parse(argc, argv);
 
-    numberOfenbNodes = scenario;
-
     five_g = generation.compare("5G") == 0;
+
+    char ues[10];
+    sprintf(ues, "%d", numberOfueNodes);
+
+    std::string root = "graphs/" + generation;
+    std::string folder = root + "/" + ues + " UEs/";
+    std::string fileNamePrefix;
+
+    if (scenario == 1)
+    {
+        if (five_g) // *** 5G ***
+            fileNamePrefix = "r" + std::to_string(radius) + "-num" + std::to_string(numerology) + "-s" + std::to_string(seed) + "-t" + std::to_string(static_cast<int>(simTime)) + "-" + comment;
+        else // *** 4G ***
+            fileNamePrefix = "r" + std::to_string(radius) + "-s" + std::to_string(seed) + "-t" + std::to_string(static_cast<int>(simTime)) + "-" + comment;
+    }
+    else if (scenario == 2)
+    {
+        if (five_g) // *** 5G ***
+            fileNamePrefix = "gNB" + std::to_string(numberOfenbNodes) + "-r" + std::to_string(radius) + "-num" + std::to_string(numerology) + "-s" + std::to_string(seed) + "-t" + std::to_string(static_cast<int>(simTime)) + "-" + comment;
+        else // *** 4G ***
+            fileNamePrefix = "eNB" + std::to_string(numberOfenbNodes) + "-r" + std::to_string(radius) + "-s" + std::to_string(seed) + "-t" + std::to_string(static_cast<int>(simTime)) + "-" + comment;
+    }
 
     if(five_g)
     { // *** 5G ***
@@ -269,9 +327,6 @@ main (int argc, char *argv[])
     double startTime = 0.1;
     double endTime = startTime + simTime + 7;
     double totalSimTime = endTime + 11;
-
-    char ues[10];
-    sprintf(ues, "%d", numberOfueNodes); 
     
     numberOfBands = numberOfueNodes/2;
     uint16_t bands[numberOfBands];
@@ -317,106 +372,41 @@ main (int argc, char *argv[])
 
     std::cout << "Number of UEs: " << ueNodes.GetN() << std::endl;
 
-    if (scenario == 1)
-    {
-        // Install Mobility Model
-        double v[numberOfueNodes][3] = {{0}};
-        Ptr<ListPositionAllocator> positionAlloc = CreateObject<ListPositionAllocator> ();
-        int x_c, y_c, x, y;
-        double z;
-        for (uint16_t i = 0; i < numberOfueNodes; i++)
-        {
-            bool redo = true;
-            while (redo)
-            {
-                redo = false;
-                x_c = squareWidth/2;
-                y_c = squareWidth/2;
-                int rho = rand() % radius +1;
-                int theta = (rand() % 628 +1) / 100;
-                x = static_cast<int>(rho * cos(theta));
-                y = static_cast<int>(rho * sin(theta));
-                z = height;
-                for (int j = 0; j < numberOfueNodes; j++)
-                {
-                    if (x == v[j][0] && y == v[j][1] && z == v[j][2])
-                        redo = true;
-                }
-            }
-            v[i][0] = x;
-            v[i][1] = y;
-            v[i][2] = z;
-            positionAlloc->Add (Vector(x + x_c, y + y_c, z));
-            std::cout << "x: " << x + x_c << std::endl;
-            std::cout << "y: " << y + y_c << std::endl;
-            std::cout << "z: " << z << std::endl;
-        }
-        mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
-        mobility.SetPositionAllocator(positionAlloc);
-        mobility.Install(ueNodes);
-        positionAlloc = CreateObject<ListPositionAllocator> ();
-        positionAlloc->Add (Vector(squareWidth/2, squareWidth/2, 25));
-        mobility.SetPositionAllocator(positionAlloc);
-        mobility.Install(enbNodes);
-        mobility.Install(remoteHost);
-        mobility.Install(pgw);
-    }
-    else if (scenario == 2)
-    {
-        // Install Mobility Model
-        double v[numberOfueNodes][4] = {{0}};
-        Ptr<ListPositionAllocator> positionAlloc = CreateObject<ListPositionAllocator> ();
-        int x_c, y_c, x, y, enbIndex = 0;
-        double z;
-        for (uint16_t i = 0; i < numberOfueNodes; i++)
-        {
-            bool redo = true;
-            while (redo)
-            {
-                redo = false;
-                x_c = squareWidth/2;
-                y_c = squareWidth/2;
-                int rho = rand() % radius +1;
-                int theta = (rand() % 628 +1) / 100;
-                x = static_cast<int>(rho * cos(theta));
-                y = static_cast<int>(rho * sin(theta));
-                z = height;
-                for (int j = 0; j < numberOfueNodes; j++)
-                {
-                    if (x == v[j][0] && y == v[j][1] && z == v[j][2] && enbIndex == v[j][3])
-                        redo = true;
-                }
-            }
-            v[i][0] = x;
-            v[i][1] = y;
-            v[i][2] = z;
-            v[i][3] = enbIndex;
-            positionAlloc->Add (Vector(x + x_c, y + y_c + cell2cellDistance*enbIndex, z));
-            std::cout << "x: " << x + x_c << std::endl;
-            std::cout << "y: " << y + y_c << std::endl;
-            std::cout << "z: " << z << std::endl;
-            std::cout << "enbIndex: " << enbIndex << std::endl;
-            enbIndex++;
-            enbIndex = enbIndex % numberOfenbNodes;
-            }
-        mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
-        mobility.SetPositionAllocator(positionAlloc);
-        mobility.Install(ueNodes);
+    Ptr<ListPositionAllocator> positionAlloc = CreateObject<ListPositionAllocator> ();
+    std::vector<Vector> enbs;
+    enbs.push_back(Vector(squareWidth/2, squareWidth/2, enbHeight));
 
-        positionAlloc = CreateObject<ListPositionAllocator> ();
-        for (uint16_t i = 0; i < numberOfenbNodes; i++)
-        {
-            positionAlloc->Add (Vector(squareWidth/2, (squareWidth/2) + cell2cellDistance*i, 25));
-        }
-        mobility.SetPositionAllocator(positionAlloc);
-        mobility.Install(enbNodes);
-        
-        positionAlloc = CreateObject<ListPositionAllocator> ();
-        positionAlloc->Add (Vector(squareWidth/2, squareWidth/2, 10));
-        mobility.SetPositionAllocator(positionAlloc);
-        mobility.Install(remoteHost);
-        mobility.Install(pgw);
+    if (scenario == 2)
+    {
+        int x_offset = squareWidth/4;
+        int y_offset = 433;
+        int center = squareWidth/2;
+        enbs.push_back(Vector(center + cell2cellDistance, center, enbHeight));
+        enbs.push_back(Vector(center + x_offset, center + y_offset, enbHeight));
     }
+
+    std::string positionsFileName = folder + "/data/" + fileNamePrefix + "_positions.txt";
+    std::ofstream ofs;
+    ofs.open(positionsFileName, std::ofstream::out | std::ofstream::trunc);
+    ofs.close();
+    populate_positions(positionAlloc, numberOfueNodes, enbs, radius, height, positionsFileName, false);
+    mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
+    mobility.SetPositionAllocator(positionAlloc);
+    mobility.Install(ueNodes);
+
+    positionAlloc = CreateObject<ListPositionAllocator> ();
+    for (uint16_t i = 0; i < numberOfenbNodes; i++)
+    {
+        positionAlloc->Add (enbs.at(i));
+    }
+    mobility.SetPositionAllocator(positionAlloc);
+    mobility.Install(enbNodes);
+    
+    positionAlloc = CreateObject<ListPositionAllocator> ();
+    positionAlloc->Add (enbs.at(0));
+    mobility.SetPositionAllocator(positionAlloc);
+    mobility.Install(remoteHost);
+    mobility.Install(pgw);
 
     if (five_g)
     { // *** 5G ***
@@ -588,25 +578,6 @@ main (int argc, char *argv[])
 
     Simulator::Stop(Seconds(totalSimTime));
     Simulator::Run();
-
-    std::string root = "graphs/" + generation;
-    std::string folder = root + "/" + ues + " UEs/";
-
-    std::string fileNamePrefix;
-    if (scenario == 1)
-    {
-        if (five_g) // *** 5G ***
-            fileNamePrefix = "r" + std::to_string(radius) + "-num" + std::to_string(numerology) + "-s" + std::to_string(seed) + "-t" + std::to_string(static_cast<int>(simTime)) + "-" + comment;
-        else // *** 4G ***
-            fileNamePrefix = "r" + std::to_string(radius) + "-s" + std::to_string(seed) + "-t" + std::to_string(static_cast<int>(simTime)) + "-" + comment;
-    }
-    else if (scenario == 2)
-    {
-        if (five_g) // *** 5G ***
-            fileNamePrefix = "gNB" + std::to_string(numberOfenbNodes) + "-r" + std::to_string(radius) + "-num" + std::to_string(numerology) + "-s" + std::to_string(seed) + "-t" + std::to_string(static_cast<int>(simTime)) + "-" + comment;
-        else // *** 4G ***
-            fileNamePrefix = "eNB" + std::to_string(numberOfenbNodes) + "-r" + std::to_string(radius) + "-s" + std::to_string(seed) + "-t" + std::to_string(static_cast<int>(simTime)) + "-" + comment;
-    }
 
     std::string transferFileName = folder + "/data/" + fileNamePrefix + "_transferFile.txt";
     std::ofstream transferFile;
