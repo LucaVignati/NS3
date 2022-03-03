@@ -38,8 +38,14 @@ void populate_positions(Ptr<ListPositionAllocator> positionAlloc, int numberOfue
     std::vector<Vector> ues;
     std::ofstream positionsFile;
     positionsFile.open(filename.c_str(), std::ios_base::app);
+    std::string trafficString;
+    if (traffic)
+        trafficString = "t";
+    else
+        trafficString = "r";
+
     for (Vector enb : enbs)
-        positionsFile << "eNB " << enb.x << " " << enb.y << " " << enb.z << std::endl;
+        positionsFile << "eNB " << enb.x << " " << enb.y << " " << enb.z << " " << trafficString << std::endl;
     
     for (uint16_t i = 0; i < numberOfueNodes; i++)
     {
@@ -61,7 +67,7 @@ void populate_positions(Ptr<ListPositionAllocator> positionAlloc, int numberOfue
         }
         ues.push_back(ue);
         positionAlloc->Add (ue);
-        positionsFile << "UE " << ue.x << " " << ue.y << " " << ue.z << std::endl;
+        positionsFile << "UE " << ue.x << " " << ue.y << " " << ue.z << " " << trafficString << std::endl;
     }
     positionsFile.close();
 }
@@ -70,6 +76,7 @@ int
 main (int argc, char *argv[])
 {
     bool five_g;
+    bool traffic = false;
     std::string generation = "4G";
     uint16_t scenario = 1;
     uint16_t numberOfenbNodes = 1;
@@ -94,6 +101,9 @@ main (int argc, char *argv[])
     double spacingBandwidth = 170e6; // bandwidth of the bandwidth part used to separate the UL from the DL
     enum BandwidthPartInfo::Scenario scenarioEnum = BandwidthPartInfo::UMa; //UMi_Buildings
 
+    int trafficUeNodesPerenb = 10;
+    int numberOfTrafficEnbNodes;
+
     Ptr<LteHelper> lteHelper;
     Ptr<NrHelper> nrHelper;
     Ptr<Node> pgw;
@@ -117,6 +127,9 @@ main (int argc, char *argv[])
     cmd.AddValue("scenario",
                 "Scenario 1 or Scenario 2",
                 scenario);
+    cmd.AddValue("traffic",
+                "Switches on the background internet traffic",
+                traffic);
     cmd.AddValue("numberOfenbNodes",
                 "Number of eNodeBs",
                 numberOfenbNodes);
@@ -154,6 +167,14 @@ main (int argc, char *argv[])
     char ues[10];
     sprintf(ues, "%d", numberOfueNodes);
 
+    if (traffic)
+    {
+        if (scenario == 1)
+            numberOfTrafficEnbNodes = 6;
+        else if (scenario == 2)
+            numberOfTrafficEnbNodes = 9;
+    }
+
     std::string root = "graphs/" + generation;
     std::string folder = root + "/" + ues + " UEs/";
     std::string fileNamePrefix;
@@ -167,6 +188,7 @@ main (int argc, char *argv[])
     }
     else if (scenario == 2)
     {
+        numberOfenbNodes = 3;
         if (five_g) // *** 5G ***
             fileNamePrefix = "gNB" + std::to_string(numberOfenbNodes) + "-r" + std::to_string(radius) + "-num" + std::to_string(numerology) + "-s" + std::to_string(seed) + "-t" + std::to_string(static_cast<int>(simTime)) + "-" + comment;
         else // *** 4G ***
@@ -360,8 +382,16 @@ main (int argc, char *argv[])
 
     NodeContainer ueNodes;
     NodeContainer enbNodes;
+    NodeContainer trafficUeNodes[numberOfTrafficEnbNodes];
+    NodeContainer trafficEnbNodes;
     NodeContainer bandNodes[numberOfBands];
     enbNodes.Create(numberOfenbNodes);
+    if (traffic)
+    {
+        trafficEnbNodes.Create(numberOfTrafficEnbNodes);
+        for (int i = 0; i < numberOfTrafficEnbNodes; i++)
+            trafficUeNodes[i].Create(trafficUeNodesPerenb);
+    }
     for(uint32_t u = 0; u < numberOfBands; u++)
     {
         bands[u] = /*rand() % 3 +*/ 2;
@@ -374,13 +404,14 @@ main (int argc, char *argv[])
 
     Ptr<ListPositionAllocator> positionAlloc = CreateObject<ListPositionAllocator> ();
     std::vector<Vector> enbs;
+    std::vector<Vector> trafficEnbs;
+    int x_offset = squareWidth/4;
+    int y_offset = 433;
+    int center = squareWidth/2;
     enbs.push_back(Vector(squareWidth/2, squareWidth/2, enbHeight));
 
     if (scenario == 2)
     {
-        int x_offset = squareWidth/4;
-        int y_offset = 433;
-        int center = squareWidth/2;
         enbs.push_back(Vector(center + cell2cellDistance, center, enbHeight));
         enbs.push_back(Vector(center + x_offset, center + y_offset, enbHeight));
     }
@@ -395,12 +426,53 @@ main (int argc, char *argv[])
     mobility.Install(ueNodes);
 
     positionAlloc = CreateObject<ListPositionAllocator> ();
-    for (uint16_t i = 0; i < numberOfenbNodes; i++)
+    for (Vector enb : enbs)
     {
-        positionAlloc->Add (enbs.at(i));
+        positionAlloc->Add (enb);
     }
     mobility.SetPositionAllocator(positionAlloc);
     mobility.Install(enbNodes);
+
+    if (traffic)
+    {
+        trafficEnbs.push_back(Vector(center - cell2cellDistance, center, enbHeight));
+        trafficEnbs.push_back(Vector(center - x_offset, center + y_offset, enbHeight));
+        trafficEnbs.push_back(Vector(center - x_offset, center - y_offset, enbHeight));
+        trafficEnbs.push_back(Vector(center + x_offset, center - y_offset, enbHeight));
+        
+        if (scenario == 1)
+        {
+            trafficEnbs.push_back(Vector(center + cell2cellDistance, center, enbHeight));
+            trafficEnbs.push_back(Vector(center + x_offset, center + y_offset, enbHeight));
+        }
+        else if (scenario == 2)
+        {
+            trafficEnbs.push_back(Vector(center + x_offset + cell2cellDistance, center - y_offset, enbHeight));
+            trafficEnbs.push_back(Vector(center + 2*cell2cellDistance, center, enbHeight));
+            trafficEnbs.push_back(Vector(center + x_offset + cell2cellDistance, center + y_offset, enbHeight));
+            trafficEnbs.push_back(Vector(center + cell2cellDistance, center + y_offset + cell2cellDistance, enbHeight));
+            trafficEnbs.push_back(Vector(center, center + y_offset + cell2cellDistance, enbHeight));
+        }
+        positionAlloc = CreateObject<ListPositionAllocator> ();
+        for (Vector trafficEnb : trafficEnbs)
+        {
+            positionAlloc->Add(trafficEnb);
+        }
+        mobility.SetPositionAllocator(positionAlloc);
+        mobility.Install(trafficEnbNodes);
+
+        int i = 0;
+        for (Vector trafficEnb: trafficEnbs)
+        {
+            positionAlloc = CreateObject<ListPositionAllocator> ();
+            std::vector<Vector> trafficEnbVector;
+            trafficEnbVector.push_back(trafficEnb);
+            populate_positions(positionAlloc, trafficUeNodesPerenb,  trafficEnbVector, radius, height, positionsFileName, true);
+            mobility.SetPositionAllocator(positionAlloc);
+            mobility.Install(trafficUeNodes[i]);
+            i++;
+        }
+    }
     
     positionAlloc = CreateObject<ListPositionAllocator> ();
     positionAlloc->Add (enbs.at(0));
