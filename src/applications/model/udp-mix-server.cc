@@ -112,10 +112,9 @@ IoMusTPacket::DoDelete()
 {
 }
 
-Stream::Stream (Address client_address, Address packet_address)
+Stream::Stream (Address client_address)
 {
   address = client_address;
-  this->packet_address = packet_address;
   send_buffer.fill(NULL);
 }
 
@@ -149,12 +148,6 @@ Address
 Stream::get_address(void)
 {
   return address;
-}
-
-Address
-Stream::get_packet_address(void)
-{
-  return packet_address;
 }
 
 void
@@ -317,7 +310,7 @@ UdpMixServer::send_packets(int seq_n)
       p = new IoMusTPacket(p, seq_n);
     }
     int (Socket::*fp)(Ptr<ns3::Packet>, uint32_t, const ns3::Address&) = &ns3::Socket::SendTo;
-    Simulator::Schedule(Seconds(0.), fp, socket, p->get_packet(), 0, stream->get_packet_address());
+    Simulator::Schedule(Seconds(0.), fp, socket, p->get_packet(), 0, stream->get_address());
   }
   for (Ptr<Stream> stream : streams)
   {
@@ -353,7 +346,7 @@ UdpMixServer::add_stream(Address client_address, Ptr<IoMusTPacket> packet)
   int seq_n = packet->get_seq_n();
   Time stream_reference_time = send_time - seq_n * packet_transmission_period;
   int offset;
-  streams.push_back(new Stream(client_address, packet->get_to_address()));
+  streams.push_back(new Stream(client_address));
   Ptr<Stream> stream = streams.back();
   
   if (reference_time != MicroSeconds(0))
@@ -430,11 +423,14 @@ UdpMixServer::HandleRead (Ptr<Socket> socket)
                        Inet6SocketAddress::ConvertFrom (from).GetPort ());
         }
 
+      Ipv4Address ip = InetSocketAddress::ConvertFrom(from).GetIpv4();
+      Address senderAddress = InetSocketAddress(ip, 5);
+
       Ptr<IoMusTPacket> packet_wrapper = new IoMusTPacket(packet);
 
       if (first_packet)
       {
-        Ptr<Stream> stream = add_stream(from, packet_wrapper);
+        Ptr<Stream> stream = add_stream(senderAddress, packet_wrapper);
         first_packet = false;
       }
       new_stream = true;
@@ -442,16 +438,16 @@ UdpMixServer::HandleRead (Ptr<Socket> socket)
       for (Ptr<Stream> stream : streams)
       {
         Address client_address = stream->get_address();
-        if (client_address == from)
+        if (client_address == senderAddress)
         {
-          add_packet(packet_wrapper, from , stream);
+          add_packet(packet_wrapper, senderAddress , stream);
           new_stream = false;
         }
       }
       if (new_stream)
       {
-        Ptr<Stream> stream = add_stream(from, packet_wrapper);
-        add_packet(packet_wrapper, from, stream);
+        Ptr<Stream> stream = add_stream(senderAddress, packet_wrapper);
+        add_packet(packet_wrapper, senderAddress, stream);
       }
 
       /*ip.Print(std::cout);

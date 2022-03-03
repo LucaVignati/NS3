@@ -59,7 +59,7 @@ class IoMusTPacket : public Object
     virtual Ptr<Packet> get_packet(void);
 
     /**
-    * \brief Retrieves the address of the sender
+    * \brief Retrieves the address of the destination where the packet is ment to be sent
     */
     virtual Address get_to_address(void);
 
@@ -92,7 +92,7 @@ class IoMusTPacket : public Object
 class Stream : public Object
 {
   public:
-    Stream (Address client_address, Address packet_address);
+    Stream (Address client_address);
     virtual ~Stream ();
 
     /**
@@ -120,19 +120,10 @@ class Stream : public Object
 
     /**
     * \brief Returns the address of the client associated with this stream
-    * in a form suitable for comparison with the address fetched from a socket
     * 
     * \returns The address of the client associated with this stream
     */
     virtual Address get_address(void);
-
-    /**
-    * \brief Returns the address of the client associated with this stream
-    * in a form suitable for use as a destination address
-    * 
-    * \returns The address of the client associated with this stream
-    */
-    virtual Address get_packet_address(void);
 
     /**
     * \brief Sets the offset
@@ -156,10 +147,9 @@ class Stream : public Object
 
   private:
     static constexpr int array_size = 100; //!< The size of the array containing the send buffer
-    Address address; //!< The client's ipv4 address, in a form suitable for comparison with the address fetched from a socket
+    Address address; //!< The client's ipv4 address
     std::array<Ptr<IoMusTPacket>, array_size> send_buffer; //!< Array of packets waiting to be mixed
     int offset; //!< Number to be applied to the sequence number to get the normalized sequence number
-    Address packet_address; //!< The client's ipv4 address and port, in a form suitable for use as a destination address
 };
 
 /**

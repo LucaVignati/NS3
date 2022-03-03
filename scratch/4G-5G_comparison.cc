@@ -72,6 +72,40 @@ void populate_positions(Ptr<ListPositionAllocator> positionAlloc, int numberOfue
     positionsFile.close();
 }
 
+void calculate_combinations(std::vector<std::vector<int>> *combinations, std::vector<int> *combination, int sum)
+{
+    int partial = sum;
+    if(combination->size() > 0)
+        if (partial > combination->back())
+            partial = combination->back();
+    std::vector<int> comb;
+    for (int n : *combination)
+        comb.push_back(n);
+    while (true)
+    {
+        if (sum == 2)
+        {
+            comb.push_back(partial);
+            combinations->push_back(comb);
+            break;
+        }
+        else if (sum == 1)
+            break;
+        else if (sum == 0)
+        {
+            combinations->push_back(comb);
+            break;
+        }
+        if (partial < 2)
+            break;
+        
+        comb.push_back(partial);
+        calculate_combinations(combinations, &comb, sum - partial);
+        comb.pop_back();
+        partial--;
+    }
+}
+
 int
 main (int argc, char *argv[])
 {
@@ -100,6 +134,9 @@ main (int argc, char *argv[])
     double bwpBandwidth = 20e6; //bandwidth of the UL and the DL
     double spacingBandwidth = 170e6; // bandwidth of the bandwidth part used to separate the UL from the DL
     enum BandwidthPartInfo::Scenario scenarioEnum = BandwidthPartInfo::UMa; //UMi_Buildings
+
+    std::vector<std::vector<int>> combinations;
+    std::vector<int> combination;
 
     int trafficUeNodesPerenb = 10;
     int numberOfTrafficEnbNodes;
@@ -175,6 +212,11 @@ main (int argc, char *argv[])
             numberOfTrafficEnbNodes = 9;
     }
 
+    calculate_combinations(&combinations, &combination, numberOfueNodes);
+    combination = combinations.at(rand() % combinations.size());
+    numberOfBands = combination.size();
+    uint16_t bands[numberOfBands];
+
     std::string root = "graphs/" + generation;
     std::string folder = root + "/" + ues + " UEs/";
     std::string fileNamePrefix;
@@ -239,10 +281,6 @@ main (int argc, char *argv[])
         std::unique_ptr<BandwidthPartInfo> bwp0 (new BandwidthPartInfo ());
         std::unique_ptr<BandwidthPartInfo> bwp1 (new BandwidthPartInfo ());
         std::unique_ptr<BandwidthPartInfo> bwp2 (new BandwidthPartInfo ());
-
-        std::cout << bwpBandwidth << std::endl;
-        std::cout << spacingBandwidth << std::endl;
-        std::cout << 2*bwpBandwidth + spacingBandwidth << std::endl;
 
         band.m_centralFrequency  = frequency;
         band.m_channelBandwidth = 2*bwpBandwidth + spacingBandwidth;
@@ -350,9 +388,6 @@ main (int argc, char *argv[])
     double endTime = startTime + simTime + 7;
     double totalSimTime = endTime + 11;
     
-    numberOfBands = numberOfueNodes/2;
-    uint16_t bands[numberOfBands];
-    
     srand(seed);
 
     Time::SetResolution (Time::NS);
@@ -382,25 +417,34 @@ main (int argc, char *argv[])
 
     NodeContainer ueNodes;
     NodeContainer enbNodes;
+    NodeContainer ioMusTueNodes;
+    NodeContainer ioMusTenbNodes;
     NodeContainer trafficUeNodes[numberOfTrafficEnbNodes];
     NodeContainer trafficEnbNodes;
     NodeContainer bandNodes[numberOfBands];
-    enbNodes.Create(numberOfenbNodes);
+    ioMusTenbNodes.Create(numberOfenbNodes);
+    enbNodes.Add(ioMusTenbNodes);
     if (traffic)
     {
         trafficEnbNodes.Create(numberOfTrafficEnbNodes);
+        enbNodes.Add(trafficEnbNodes);
         for (int i = 0; i < numberOfTrafficEnbNodes; i++)
+        {
             trafficUeNodes[i].Create(trafficUeNodesPerenb);
+            ueNodes.Add(trafficUeNodes[i]);
+        }
     }
     for(uint32_t u = 0; u < numberOfBands; u++)
     {
-        bands[u] = /*rand() % 3 +*/ 2;
+        bands[u] = combination.at(u);
         bandNodes[u].Create(bands[u]);
+        ioMusTueNodes.Add(bandNodes[u]);
         ueNodes.Add(bandNodes[u]);
         std::cout << "Band " << u + 1 << ": " << bands[u] << std::endl;
     }
 
-    std::cout << "Number of UEs: " << ueNodes.GetN() << std::endl;
+    std::cout << "Number of IoMusT UEs: " << ioMusTueNodes.GetN() << std::endl;
+    std::cout << "Number of traffic UEs: " << ueNodes.GetN() - ioMusTueNodes.GetN() << std::endl;
 
     Ptr<ListPositionAllocator> positionAlloc = CreateObject<ListPositionAllocator> ();
     std::vector<Vector> enbs;
@@ -423,7 +467,7 @@ main (int argc, char *argv[])
     populate_positions(positionAlloc, numberOfueNodes, enbs, radius, height, positionsFileName, false);
     mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
     mobility.SetPositionAllocator(positionAlloc);
-    mobility.Install(ueNodes);
+    mobility.Install(ioMusTueNodes);
 
     positionAlloc = CreateObject<ListPositionAllocator> ();
     for (Vector enb : enbs)
@@ -431,7 +475,7 @@ main (int argc, char *argv[])
         positionAlloc->Add (enb);
     }
     mobility.SetPositionAllocator(positionAlloc);
-    mobility.Install(enbNodes);
+    mobility.Install(ioMusTenbNodes);
 
     if (traffic)
     {
@@ -560,34 +604,15 @@ main (int argc, char *argv[])
         lteHelper->AttachToClosestEnb (ueNetDevs, enbNetDevs);
         // side effect: the default EPS bearer will be activated
 
-    // Install and start applications on UEs and remote host
-    UdpMixServerHelper udpMixServer(9);
-    udpMixServer.SetAttribute("TransmissionPeriod", TimeValue(Seconds(interPacketInterval)));
-    udpMixServer.SetAttribute("Timeout", TimeValue(MilliSeconds(mixServerTimeout)));
-    ApplicationContainer serverApps = udpMixServer.Install (remoteHost);
-    serverApps.Start (Seconds (startTime));
-    serverApps.Stop (Seconds (endTime));
-
-    int j;
-    uint64_t *e2eLatVect[numberOfueNodes][2];
-    UdpIomustServerHelper udpServer(5);
-    for(int i = 0; i < numberOfueNodes; i++)
+    for (int i = 0; i < numberOfBands; i++)
     {
-        uint64_t *arrivalTimeVect = (uint64_t *) malloc(nPackets * sizeof(uint64_t));
-        uint64_t *latVect = (uint64_t *) malloc(nPackets * sizeof(uint64_t));
-        for(j = 0; j < nPackets; j++)
-        {
-            arrivalTimeVect[j] = 0;
-            latVect[j] = 0;
-        }
-        e2eLatVect[i][0] = arrivalTimeVect;
-        e2eLatVect[i][1] = latVect;
-        ApplicationContainer ueServers = udpServer.Install(ueNodes.Get(i));
-        Ptr<UdpIomustServer> server = udpServer.GetServer();
-        server->SetMaxLatency(thrsLatency);
-        server->SetDataVectors(arrivalTimeVect, latVect);
-        ueServers.Start(Seconds(startTime));
-        ueServers.Stop(Seconds(endTime));
+        // Install and start applications on UEs and remote host
+        UdpMixServerHelper udpMixServer(i + 50);
+        udpMixServer.SetAttribute("TransmissionPeriod", TimeValue(Seconds(interPacketInterval)));
+        udpMixServer.SetAttribute("Timeout", TimeValue(MilliSeconds(mixServerTimeout)));
+        ApplicationContainer serverApps = udpMixServer.Install (remoteHost);
+        serverApps.Start (Seconds (startTime));
+        serverApps.Stop (Seconds (endTime));
     }
 
     if (five_g)
@@ -603,30 +628,73 @@ main (int argc, char *argv[])
         dlTft->Add(dlpfLowLatency);
     }
 
+    if (traffic)
+    {
+        UdpEchoServerHelper udpEchoServer(12);
+        ApplicationContainer serverApps = udpEchoServer.Install (remoteHost);
+        serverApps.Start (Seconds (startTime));
+        serverApps.Stop (Seconds (endTime));
+
+        for (int j = 0; j < numberOfTrafficEnbNodes; j++)
+            for (uint32_t i = 0; i < trafficUeNodes[j].GetN(); i++)
+            {
+                UdpEchoClientHelper udpClient(remoteHostAddr, 12);
+                udpClient.SetAttribute ("MaxPackets", UintegerValue (nPackets));
+                udpClient.SetAttribute ("Interval", TimeValue (Seconds (0.001)));
+                udpClient.SetAttribute ("PacketSize", UintegerValue (25));
+                ApplicationContainer clientApps = udpClient.Install(trafficUeNodes[j].Get(i));
+                clientApps.Start (Seconds ((rand() % 100 + startTime*100)/100.0));
+                clientApps.Stop (Seconds (endTime));
+
+                if(five_g)
+                { // *** 5G ***
+                    Ptr<Node> node = trafficUeNodes[j].Get(i);
+                    Ptr<NetDevice> device = node->GetDevice(0);
+                    nrHelper->ActivateDedicatedEpsBearer (device, lowLatencyBearerUL, ulTft);
+                    nrHelper->ActivateDedicatedEpsBearer (device, lowLatencyBearerDL, dlTft);
+                }
+            }
+    }
+
+    int j;
+    uint64_t *e2eLatVect[ioMusTueNodes.GetN()][2];
+    for(uint32_t i = 0; i < ioMusTueNodes.GetN(); i++)
+    {
+        UdpIomustServerHelper udpServer(5);
+        uint64_t *arrivalTimeVect = (uint64_t *) malloc(nPackets * sizeof(uint64_t));
+        uint64_t *latVect = (uint64_t *) malloc(nPackets * sizeof(uint64_t));
+        for(j = 0; j < nPackets; j++)
+        {
+            arrivalTimeVect[j] = 0;
+            latVect[j] = 0;
+        }
+        e2eLatVect[i][0] = arrivalTimeVect;
+        e2eLatVect[i][1] = latVect;
+        ApplicationContainer ueServers = udpServer.Install(ioMusTueNodes.Get(i));
+        Ptr<UdpIomustServer> server = udpServer.GetServer();
+        server->SetMaxLatency(thrsLatency);
+        server->SetDataVectors(arrivalTimeVect, latVect);
+        ueServers.Start(Seconds(startTime));
+        ueServers.Stop(Seconds(endTime));
+    }
+
     for(uint16_t u = 0; u < numberOfBands; u++)
     {
         for(uint16_t i = 0; i < bands[u]; i++)
         {
-            Ptr<Node> node = bandNodes[u].Get(i);
-            Ptr<NetDevice> device = node->GetDevice(0);
-            int32_t interface = node->GetObject<Ipv4>()->GetInterfaceForDevice(device);
-            Ipv4Address address = node->GetObject<Ipv4>()->GetAddress(interface, 0).GetLocal();
-            UdpIomustClientHelper udpClient(remoteHostAddr, 9);
+            UdpIomustClientHelper udpClient(remoteHostAddr, 50 + u);
             udpClient.SetAttribute ("MaxPackets", UintegerValue (nPackets));
             udpClient.SetAttribute ("Interval", TimeValue (Seconds (interPacketInterval)));
-            for(uint16_t j = 1; j < bands[u]; j++)
-            {
-                ApplicationContainer clientApps = udpClient.Install(bandNodes[u].Get((i + j) % bands[u]));
-                uint8_t *data = new uint8_t[5];
-                address.Serialize(data);
-                data[4] = 5;
-                udpClient.SetFill(clientApps.Get(0), data, 5, packetSize);
-                clientApps.Start (Seconds ((rand() % 100 + startTime*100)/100.0));
-                clientApps.Stop (Seconds (endTime));
-            }
+            ApplicationContainer clientApps = udpClient.Install(bandNodes[u].Get(i));
+            uint8_t *data = new uint8_t[5];
+            udpClient.SetFill(clientApps.Get(0), data, 5, packetSize);
+            clientApps.Start (Seconds ((rand() % 100 + startTime*100)/100.0));
+            clientApps.Stop (Seconds (endTime));
 
             if(five_g)
             { // *** 5G ***
+                Ptr<Node> node = bandNodes[u].Get(i);
+                Ptr<NetDevice> device = node->GetDevice(0);
                 nrHelper->ActivateDedicatedEpsBearer (device, lowLatencyBearerUL, ulTft);
                 nrHelper->ActivateDedicatedEpsBearer (device, lowLatencyBearerDL, dlTft);
             }
