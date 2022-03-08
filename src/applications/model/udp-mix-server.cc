@@ -56,10 +56,9 @@ IoMusTPacket::IoMusTPacket(Ptr<Packet> packet)
   sendTime = MicroSeconds(time);
 }
 
-IoMusTPacket::IoMusTPacket(Ptr<IoMusTPacket> packet, int seq_n)
+IoMusTPacket::IoMusTPacket(Ptr<IoMusTPacket> packet)
 {
   uint64_t time = 0;
-  seqN = seq_n;
   pktSize = packet->get_pkt_size();
   data = new uint8_t[pktSize];
   packet->copy_data(data);
@@ -81,6 +80,12 @@ int
 IoMusTPacket::get_seq_n(void)
 {
   return seqN;
+}
+
+void
+IoMusTPacket::set_seq_n(int seq_n)
+{
+  seqN = seq_n;
 }
 
 Ptr<Packet>
@@ -162,6 +167,12 @@ Stream::get_offset(void)
   return offset;
 }
 
+int
+Stream::convert_seq_n(int norm_seq_n)
+{
+  return norm_seq_n + offset;
+}
+
 void
 Stream::DoDelete()
 {
@@ -187,7 +198,7 @@ UdpMixServer::GetTypeId (void)
                    MakeTimeAccessor(&UdpMixServer::packet_transmission_period),
                    MakeTimeChecker())
     .AddAttribute ("Timeout", "Maximum time to wait for packets of the same slots to arrive",
-                   TimeValue (MilliSeconds (15)),
+                   TimeValue (MilliSeconds (10)),
                    MakeTimeAccessor(&UdpMixServer::timeout),
                    MakeTimeChecker())
     .AddTraceSource ("Rx", "A packet has been received",
@@ -307,10 +318,11 @@ UdpMixServer::send_packets(int seq_n)
         p = s->get_packet(seq_n);
         if (p != NULL) break;
       }
-      p = new IoMusTPacket(p, seq_n);
+      p = new IoMusTPacket(p);
     }
+    p->set_seq_n(stream->convert_seq_n(seq_n));
     int (Socket::*fp)(Ptr<ns3::Packet>, uint32_t, const ns3::Address&) = &ns3::Socket::SendTo;
-    Simulator::Schedule(Seconds(0.), fp, socket, p->get_packet(), 0, stream->get_address());
+    Simulator::Schedule(Seconds(0.0002), fp, socket, p->get_packet(), 0, stream->get_address());
   }
   for (Ptr<Stream> stream : streams)
   {

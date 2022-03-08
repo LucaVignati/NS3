@@ -61,7 +61,7 @@ void populate_positions(Ptr<ListPositionAllocator> positionAlloc, int numberOfue
             ue.z = height;
             for (Vector u : ues)
             {
-                if (ue.x == u.x && ue.y == u.x && ue.z == u.x)
+                if (ue.x == u.x && ue.y == u.y && ue.z == u.z)
                     redo = true;
             }
         }
@@ -124,7 +124,7 @@ main (int argc, char *argv[])
     int nPackets;
     uint32_t packetSize = 280;
     uint16_t thrsLatency = 20*1000;
-    uint32_t mixServerTimeout = 15;
+    uint32_t mixServerTimeout = 10;
     std::string comment = "";
     int seed = 0;
     int cell2cellDistance = 500;
@@ -156,6 +156,8 @@ main (int argc, char *argv[])
     EpsBearer lowLatencyBearerDL (EpsBearer::GBR_CONV_VOICE);
     Ptr<EpcTft> ulTft;
     Ptr<EpcTft> dlTft;
+
+    Time::SetResolution (Time::NS);
 
     CommandLine cmd;
     cmd.AddValue("generation",
@@ -198,6 +200,8 @@ main (int argc, char *argv[])
                 "Value defining the subcarrier spaceing and symbol lenght",
                 numerology);
     cmd.Parse(argc, argv);
+
+    srand(seed);
 
     five_g = generation.compare("5G") == 0;
 
@@ -387,10 +391,6 @@ main (int argc, char *argv[])
     double startTime = 0.1;
     double endTime = startTime + simTime + 7;
     double totalSimTime = endTime + 11;
-    
-    srand(seed);
-
-    Time::SetResolution (Time::NS);
 
     // Create a single RemoteHost
     NodeContainer remoteHostContainer;
@@ -701,10 +701,10 @@ main (int argc, char *argv[])
         }
     }
 
-    if (five_g) // *** 5G ***
-        nrHelper->EnableTraces();
-    else // *** 4G ***
-        lteHelper->EnableTraces ();
+    // if (five_g) // *** 5G ***
+    //     nrHelper->EnableTraces();
+    // else // *** 4G ***
+    //     lteHelper->EnableTraces ();
 
     // Flow monitor
     Ptr<FlowMonitor> flowMonitor;
@@ -712,9 +712,9 @@ main (int argc, char *argv[])
     flowMonitor = flowHelper.Install(ueNodes);
     flowHelper.Install(remoteHost);
 
-    AnimationInterface anim ("animation.xml");
-    anim.SetMaxPktsPerTraceFile(5000000);
-    anim.SetConstantPosition(remoteHost, squareWidth, squareWidth);
+    // AnimationInterface anim ("animation.xml");
+    // anim.SetMaxPktsPerTraceFile(5000000);
+    // anim.SetConstantPosition(remoteHost, squareWidth, squareWidth);
 
     Simulator::Stop(Seconds(totalSimTime));
     Simulator::Run();

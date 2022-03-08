@@ -199,10 +199,13 @@ UdpIomustServer::HandleRead (Ptr<Socket> socket)
           uint32_t seqN;
           memcpy(&sendTime, &data[5], sizeof(sendTime));
           memcpy(&seqN, &data[5 + sizeof(sendTime)], sizeof(seqN));
-          int64_t delay = Simulator::Now().GetMicroSeconds() - sendTime;
-          latency[seqN] = delay;
-          arrivalTime[seqN] = Simulator::Now().GetMicroSeconds();
-          //std::cout << seqN << ": " << arrivalTime[seqN] << " - " << sendTime << " = " << delay << std::endl;
+          if (sendTime != 0)
+          {
+            int64_t delay = Simulator::Now().GetMicroSeconds() - sendTime;
+            latency[seqN] = delay;
+            arrivalTime[seqN] = Simulator::Now().GetMicroSeconds();
+            //std::cout << seqN << ": " << arrivalTime[seqN] << " - " << sendTime << " = " << delay << std::endl;
+          }
           SeqTsHeader seqTs;
           packet->RemoveHeader (seqTs);
           uint32_t currentSequenceNumber = seqTs.GetSeq ();

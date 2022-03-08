@@ -40,7 +40,7 @@ class IoMusTPacket : public Object
 
     IoMusTPacket ();
     IoMusTPacket (Ptr<Packet> packet);
-    IoMusTPacket (Ptr<IoMusTPacket> packet, int seq_n);
+    IoMusTPacket (Ptr<IoMusTPacket> packet);
     virtual ~IoMusTPacket ();
 
     /**
@@ -52,6 +52,13 @@ class IoMusTPacket : public Object
     * \brief Returns the sequence number contained in the packet
     */
     virtual int get_seq_n(void);
+
+    /**
+     * \brief Sets the sequence number
+     * 
+     * \param seq_n The sequence number
+     */
+    virtual void set_seq_n(int seq_n);
 
     /**
     * \brief Returns the original packet
@@ -141,6 +148,16 @@ class Stream : public Object
     * normalized sequence number
     */
     virtual int get_offset(void);
+
+    /**
+     * \brief Converts the given normalized sequence number to the correspondent sequence
+     * number of this stream
+     * 
+     * \param norm_seq_n The normalized sequence number
+     * 
+     * \returns The sequence number of this stream
+     */
+    virtual int convert_seq_n(int norm_seq_n);
 
   protected:
     virtual void DoDelete (void);
