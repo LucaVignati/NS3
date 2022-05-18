@@ -379,7 +379,7 @@ UdpMixServer::add_packet(Ptr<IoMusTPacket> packet, Address from, Ptr<Stream> str
 {
   int seq_n = stream->add_packet(packet);
   
-  if (seq_n >= oldest_seq_n)
+  if (seq_n > oldest_seq_n)
   {
     Ptr<IoMusTPacket> p;
     bool packets_ready = true;

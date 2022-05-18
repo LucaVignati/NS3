@@ -260,7 +260,7 @@ private:
   Time packet_transmission_period; //!< Time between subsequent packets at the sender side.
   Time timeout; //!< Time to wait for missing packets before sending out the ones that arrived.
   Ptr<Socket> socket; //!< Pointer to the socket used to send out packets.
-  int oldest_seq_n = 0; //!< The lowest normalized sequence number that packets must have to be accepted
+  int oldest_seq_n = -1; //!< The lowest normalized sequence number that packets must have to be accepted
 
   /// Callbacks for tracing the packet Rx events
   TracedCallback<Ptr<const Packet> > m_rxTrace;
