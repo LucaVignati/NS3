@@ -68,7 +68,8 @@ const PhyEntity::PpduFormats HePhy::m_hePpduFormats { //Ignoring PE (Packet Exte
 /* *NS_CHECK_STYLE_ON* */
 
 HePhy::HePhy (bool buildModeList /* = true */)
-  : VhtPhy (false) //don't add VHT modes to list
+  : VhtPhy (false), //don't add VHT modes to list
+    m_trigVectorExpirationTime (Seconds (0))
 {
   NS_LOG_FUNCTION (this << buildModeList);
   m_bssMembershipSelector = HE_PHY;
@@ -257,36 +258,39 @@ HePhy::GetSigBDuration (const WifiTxVector& txVector) const
     }
 }
 
-uint16_t
-HePhy::ConvertHeTbPpduDurationToLSigLength (Time ppduDuration, WifiPhyBand band)
+Time
+HePhy::GetValidPpduDuration (Time ppduDuration, const WifiTxVector& txVector,
+                             WifiPhyBand band)
 {
-  uint8_t sigExtension = 0;
-  if (band == WIFI_PHY_BAND_2_4GHZ)
-    {
-      sigExtension = 6;
-    }
+  Time tSymbol = NanoSeconds (12800 + txVector.GetGuardInterval ());
+  Time preambleDuration = WifiPhy::GetStaticPhyEntity (WIFI_MOD_CLASS_HE)->CalculatePhyPreambleAndHeaderDuration (txVector); //this is quite convoluted but only way of keeping the method static
+  uint8_t sigExtension = (band == WIFI_PHY_BAND_2_4GHZ ? 6 : 0);
+  uint32_t nSymbols = floor (static_cast<double> ((ppduDuration - preambleDuration).GetNanoSeconds () - (sigExtension * 1000)) / tSymbol.GetNanoSeconds ());
+  return preambleDuration + (nSymbols * tSymbol) + MicroSeconds (sigExtension);
+}
+
+std::pair<uint16_t, Time>
+HePhy::ConvertHeTbPpduDurationToLSigLength (Time ppduDuration, const WifiTxVector& txVector,
+                                            WifiPhyBand band)
+{
+  NS_ABORT_IF (!txVector.IsUlMu () || (txVector.GetModulationClass () != WIFI_MOD_CLASS_HE));
+  // update ppduDuration so that it is a valid PPDU duration
+  ppduDuration = GetValidPpduDuration (ppduDuration, txVector, band);
+  uint8_t sigExtension = (band == WIFI_PHY_BAND_2_4GHZ ? 6 : 0);
   uint8_t m = 2; //HE TB PPDU so m is set to 2
   uint16_t length = ((ceil ((static_cast<double> (ppduDuration.GetNanoSeconds () - (20 * 1000) - (sigExtension * 1000)) / 1000) / 4.0) * 3) - 3 - m);
-  return length;
+  return {length, ppduDuration};
 }
 
 Time
 HePhy::ConvertLSigLengthToHeTbPpduDuration (uint16_t length, const WifiTxVector& txVector, WifiPhyBand band)
 {
   NS_ABORT_IF (!txVector.IsUlMu () || (txVector.GetModulationClass () != WIFI_MOD_CLASS_HE));
-  Time tSymbol = NanoSeconds (12800 + txVector.GetGuardInterval ());
-  Time preambleDuration = WifiPhy::GetStaticPhyEntity (WIFI_MOD_CLASS_HE)->CalculatePhyPreambleAndHeaderDuration (txVector); //this is quite convoluted but only way of keeping the method static
-  uint8_t sigExtension = 0;
-  if (band == WIFI_PHY_BAND_2_4GHZ)
-    {
-      sigExtension = 6;
-    }
+  uint8_t sigExtension = (band == WIFI_PHY_BAND_2_4GHZ ? 6 : 0);
   uint8_t m = 2; //HE TB PPDU so m is set to 2
   //Equation 27-11 of IEEE P802.11ax/D4.0
   Time calculatedDuration = MicroSeconds (((ceil (static_cast<double> (length + 3 + m) / 3)) * 4) + 20 + sigExtension);
-  uint32_t nSymbols = floor (static_cast<double> ((calculatedDuration - preambleDuration).GetNanoSeconds () - (sigExtension * 1000)) / tSymbol.GetNanoSeconds ());
-  Time ppduDuration = preambleDuration + (nSymbols * tSymbol) + MicroSeconds (sigExtension);
-  return ppduDuration;
+  return GetValidPpduDuration (calculatedDuration, txVector, band);
 }
 
 Time
@@ -313,6 +317,14 @@ HePhy::GetSymbolDuration (const WifiTxVector& txVector) const
   return NanoSeconds (12800 + gi);
 }
 
+void
+HePhy::SetTrigVector (const WifiTxVector& trigVector, Time validity)
+{
+  m_trigVector = trigVector;
+  m_trigVectorExpirationTime = Simulator::Now () + validity;
+  NS_LOG_FUNCTION (this << m_trigVector << m_trigVectorExpirationTime.As (Time::US));
+}
+
 Ptr<WifiPpdu>
 HePhy::BuildPpdu (const WifiConstPsduMap & psdus, const WifiTxVector& txVector, Time ppduDuration)
 {
@@ -328,7 +340,8 @@ HePhy::BuildPpdu (const WifiConstPsduMap & psdus, const WifiTxVector& txVector, 
       flag = HePpdu::PSD_NON_HE_TB;
     }
   return Create<HePpdu> (psdus, txVector, ppduDuration, m_wifiPhy->GetPhyBand (),
-                         ObtainNextUid (txVector), flag);
+                         ObtainNextUid (txVector), flag,
+                         m_wifiPhy->GetOperatingChannel ().GetPrimaryChannelIndex (20));
 }
 
 void
@@ -526,10 +539,49 @@ HePhy::ProcessSigA (Ptr<Event> event, PhyFieldRxStatus status)
           return PhyFieldRxStatus (false, FILTERED, DROP);
         }
 
+      // When SIG-A is decoded, we know the type of frame being received. If we stored a
+      // valid TRIGVECTOR and we are not receiving a TB PPDU, we drop the frame.
+      if (m_trigVectorExpirationTime >= Simulator::Now () && !txVector.IsUlMu ())
+        {
+          NS_LOG_DEBUG ("Expected an HE TB PPDU, receiving a " << txVector.GetPreambleType ());
+          return PhyFieldRxStatus (false, FILTERED, DROP);
+        }
+
       Ptr<const WifiPpdu> ppdu = event->GetPpdu ();
       if (txVector.IsUlMu ())
         {
           NS_ASSERT (txVector.GetModulationClass () == WIFI_MOD_CLASS_HE);
+          // check that the stored TRIGVECTOR is still valid
+          if (m_trigVectorExpirationTime < Simulator::Now ())
+            {
+              NS_LOG_DEBUG ("No valid TRIGVECTOR, the PHY was not expecting a TB PPDU");
+              return PhyFieldRxStatus (false, FILTERED, DROP);
+            }
+          // We expected a TB PPDU and we are receiving a TB PPDU. However, despite
+          // the previous check on BSS Color, we may be receiving a TB PPDU from an
+          // OBSS, as BSS Colors are not guaranteed to be different for all APs in
+          // range (an example is when BSS Color is 0). We can detect this situation
+          // by comparing the TRIGVECTOR with the TXVECTOR of the TB PPDU being received
+          if (m_trigVector.GetChannelWidth () != txVector.GetChannelWidth ())
+            {
+              NS_LOG_DEBUG ("Received channel width different than in TRIGVECTOR");
+              return PhyFieldRxStatus (false, FILTERED, DROP);
+            }
+          if (m_trigVector.GetLength () != txVector.GetLength ())
+            {
+              NS_LOG_DEBUG ("Received UL Length (" << txVector.GetLength () <<
+                            ") different than in TRIGVECTOR (" << m_trigVector.GetLength ()
+                            << ")");
+              return PhyFieldRxStatus (false, FILTERED, DROP);
+            }
+          uint16_t staId = ppdu->GetStaId ();
+          if (m_trigVector.GetHeMuUserInfoMap ().find (staId) == m_trigVector.GetHeMuUserInfoMap ().end ()
+              || m_trigVector.GetHeMuUserInfo (staId) != txVector.GetHeMuUserInfo (staId))
+            {
+              NS_LOG_DEBUG ("User Info map of TB PPDU being received differs from that of TRIGVECTOR");
+              return PhyFieldRxStatus (false, FILTERED, DROP);
+            }
+
           m_currentHeTbPpduUid = ppdu->GetUid (); //to be able to correctly schedule start of OFDMA payload
         }
 
@@ -1015,6 +1067,7 @@ HePhy::CreateHeMcs (uint8_t index)
   return WifiModeFactory::CreateWifiMcs ("HeMcs" + std::to_string (index),
                                          index,
                                          WIFI_MOD_CLASS_HE,
+                                         false,
                                          MakeBoundCallback (&GetCodeRate, index),
                                          MakeBoundCallback (&GetConstellationSize, index),
                                          MakeCallback (&GetPhyRateFromTxVector),

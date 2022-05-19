@@ -13,34 +13,23 @@ if(HAVE_STDINT_H)
     add_definitions(-DHAVE_STDINT_H)
 endif()
 
-set(name {MODULE})
-
-set(source_files
-    model/{MODULE}.cc
-    helper/{MODULE}-helper.cc
-    )
-    
-set(header_files
-    model/{MODULE}.h
-    helper/{MODULE}-helper.h
-    )
-
-set(libraries_to_link 
-    ${{libcore}}
-    )
-
+set(examples_as_tests_sources)
 if(${{ENABLE_EXAMPLES}})
     set(examples_as_tests_sources    
         #test/{MODULE}-examples-test-suite.cc
         )
 endif()    
 
-set(test_sources
-    test/{MODULE}-test-suite.cc
-    ${{examples_as_tests_sources}}
-    )    
-
-{BUILD_LIB_MACRO}("${{name}}" "${{source_files}}" "${{header_files}}" "${{libraries_to_link}}" "${{test_sources}}")
+build_lib(
+    LIBNAME {MODULE}
+    SOURCE_FILES model/{MODULE}.cc
+                 helper/{MODULE}-helper.cc 
+    HEADER_FILES model/{MODULE}.h
+                 helper/{MODULE}-helper.h
+    LIBRARIES_TO_LINK ${{libcore}}
+    TEST_SOURCES test/{MODULE}-test-suite.cc
+                 ${{examples_as_tests_sources}}
+)
     
 '''
 
@@ -109,11 +98,11 @@ namespace ns3 {{
 
 
 EXAMPLES_CMAKELISTS_TEMPLATE = '''\
-set(name {MODULE}-example)
-set(source_files ${{name}}.cc)
-set(header_files)
-set(libraries_to_link ${{lib{MODULE}}})
-{BUILD_EXAMPLE_MACRO}("${{name}}" "${{source_files}}" "${{header_files}}" "${{libraries_to_link}}")
+build_lib_example(
+    NAME {MODULE}-example
+    SOURCE_FILES {MODULE}-example.cc
+    LIBRARIES_TO_LINK ${{lib{MODULE}}}
+)
 
 '''
 
@@ -327,8 +316,8 @@ def create_file(path, template, **kwargs):
 
 def make_cmakelists(moduledir, modname):
     path = Path(moduledir, 'CMakeLists.txt')
-    macro = "build_lib" if "contrib" not in str(path) else "build_contrib_lib"
-    create_file(path, CMAKELISTS_TEMPLATE, MODULE=modname, BUILD_LIB_MACRO=macro)
+    macro = "build_lib"
+    create_file(path, CMAKELISTS_TEMPLATE, MODULE=modname)
 
     return True 
 
@@ -381,8 +370,7 @@ def make_examples(moduledir, modname):
     examplespath.mkdir(parents=True)
 
     cmakelistspath = Path(examplespath, 'CMakeLists.txt')
-    macro = "build_lib_example" if "contrib" not in str(moduledir) else "build_contrib_example"
-    create_file(cmakelistspath, EXAMPLES_CMAKELISTS_TEMPLATE, MODULE=modname, BUILD_EXAMPLE_MACRO=macro)
+    create_file(cmakelistspath, EXAMPLES_CMAKELISTS_TEMPLATE, MODULE=modname)
 
     examplesfile_path = examplespath.joinpath(modname+'-example').with_suffix('.cc')
     create_file(examplesfile_path, EXAMPLE_CC_TEMPLATE, MODULE=modname)
@@ -440,7 +428,7 @@ def create_argument_parser():
 
 Generates the directory structure and skeleton files required for an ns-3
 module.  All of the generated files are valid C/C++ and will compile successfully
-out of the box.  waf configure must be run after creating new modules in order
+out of the box.  ns3 configure must be run after creating new modules in order
 to integrate them into the ns-3 build system.
 
 The following directory structure is generated under the contrib directory:
@@ -624,7 +612,7 @@ def main(argv):
     if all(make_module(*module) for module in modules):
         print()
         print("Successfully created new modules")
-        print("Run './waf configure' to include them in the build")
+        print("Run './ns3 configure' to include them in the build")
         
     return 0
 

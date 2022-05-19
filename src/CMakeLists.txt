@@ -1,19 +1,23 @@
 set(libs "${libs_to_build}")
 
 # Process the visualizer module first if enabled
-if(${ENABLE_VISUALIZER})
-  add_subdirectory(visualizer)
+if(visualizer IN_LIST libs)
+  if(${ENABLE_VISUALIZER})
+    message(STATUS "Processing src/visualizer")
+    add_subdirectory(visualizer)
+  endif()
   list(REMOVE_ITEM libs visualizer)
 endif()
 
 # Process subdirectories
 foreach(libname ${libs})
   if(EXISTS ${PROJECT_SOURCE_DIR}/src/${libname}/CMakeLists.txt)
+    message(STATUS "Processing src/${libname}")
     add_subdirectory(${libname})
   else()
     message(
-      STATUS
-        "Skipping src/${libname} : it does not contain a CMakeLists.txt file"
+      ${HIGHLIGHTED_STATUS}
+      "Skipping src/${libname} : it does not contain a CMakeLists.txt file"
     )
   endif()
 endforeach()
@@ -21,7 +25,7 @@ endforeach()
 # Build the lib-ns3-static (ns3.x-static-buildtype.a/.lib) with all sublibraries
 if(${NS3_STATIC})
   add_library(
-    ${lib-ns3-static} STATIC ${PROJECT_SOURCE_DIR}/buildsupport/empty.cc
+    ${lib-ns3-static} STATIC ${PROJECT_SOURCE_DIR}/build-support/empty.cc
                              "${lib-ns3-static-objs}"
   )
 
@@ -30,6 +34,7 @@ if(${NS3_STATIC})
   set(ns3-external-static-libs)
   foreach(sharedlib ${ns3-external-libs})
     if(NOT (${sharedlib} MATCHES ".so"))
+      list(APPEND ns3-external-static-libs ${sharedlib})
       continue()
     endif()
 
@@ -61,7 +66,7 @@ endif()
 # sublibraries
 if(${NS3_MONOLIB})
   add_library(
-    ${lib-ns3-monolib} SHARED ${PROJECT_SOURCE_DIR}/buildsupport/empty.cc
+    ${lib-ns3-monolib} SHARED ${PROJECT_SOURCE_DIR}/build-support/empty.cc
                               "${lib-ns3-static-objs}"
   )
   set_target_properties(

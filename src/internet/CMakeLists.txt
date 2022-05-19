@@ -1,18 +1,4 @@
-set(name internet)
-
-set(nsc_sources)
-set(nsc_headers)
-if(${NS3_NSC})
-  set(nsc_sources nsc-sysctl.cc nsc-tcp-l4-protocol.cc
-                  nsc-tcp-socket-factory-impl.cc nsc-tcp-socket-impl.cc
-  )
-  set(nsc_headers nsc-sysctl.h nsc-tcp-l4-protocol.h
-                  nsc-tcp-socket-factory-impl.h nsc-tcp-socket-impl.h
-  )
-endif()
-
 set(source_files
-    ${nsc_sources}
     helper/internet-stack-helper.cc
     helper/internet-trace-helper.cc
     helper/ipv4-address-helper.cc
@@ -142,8 +128,6 @@ set(source_files
     model/udp-socket.cc
 )
 
-set(private_header_files)
-
 set(header_files
     ${header_files}
     helper/internet-stack-helper.h
@@ -263,13 +247,8 @@ set(header_files
     model/udp-header.h
     model/udp-l4-protocol.h
     model/udp-socket-factory.h
-    model/udp-socket-impl.h
     model/udp-socket.h
     model/windowed-filter.h
-)
-
-set(libraries_to_link ${libnetwork} ${libcore} ${libbridge}
-                      ${libtraffic-control}
 )
 
 set(test_sources
@@ -347,6 +326,14 @@ set(test_sources
     test/udp-test.cc
 )
 
-build_lib("${name}" "${source_files}" "${header_files}" "${libraries_to_link}"
-          "${test_sources}"
+build_lib(
+  LIBNAME internet
+  SOURCE_FILES ${source_files}
+  HEADER_FILES ${header_files}
+  LIBRARIES_TO_LINK
+    ${libnetwork}
+    ${libcore}
+    ${libbridge}
+    ${libtraffic-control}
+  TEST_SOURCES ${test_sources}
 )

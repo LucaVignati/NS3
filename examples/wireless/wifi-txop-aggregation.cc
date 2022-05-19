@@ -57,7 +57,7 @@
 //
 // The user can select the distance between the stations and the APs, can enable/disable the RTS/CTS mechanism
 // and can modify the duration of a TXOP.
-// Example: ./ns3 --run "wifi-txop-aggregation --distance=10 --enableRts=0 --simulationTime=20"
+// Example: ./ns3 run "wifi-txop-aggregation --distance=10 --enableRts=0 --simulationTime=20"
 //
 // The output prints the throughput and the maximum TXOP duration measured for the 4 cases/networks
 // described above. When default aggregation parameters are enabled, the
@@ -131,7 +131,7 @@ int main (int argc, char *argv[])
   phy.SetChannel (channel.Create ());
 
   WifiHelper wifi;
-  wifi.SetStandard (WIFI_STANDARD_80211n_5GHZ);
+  wifi.SetStandard (WIFI_STANDARD_80211n);
   wifi.SetRemoteStationManager ("ns3::ConstantRateWifiManager", "DataMode", StringValue ("HtMcs7"), "ControlMode", StringValue ("HtMcs0"));
   WifiMacHelper mac;
 

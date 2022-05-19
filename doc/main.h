@@ -17,9 +17,9 @@
  *
  * \section install-sec Building the Documentation
  * 
- * ns-3 requires Doxygen version 1.8.3.1 or greater.
+ * Building ns-3 Doxygen requires Doxygen version 1.8 at a minimum, but version 1.9 is recommended to minimize warnings.
  * 
- * Type "./ns3 --doxygen" or "./ns3 --doxygen-no-build" to build the
+ * Type "./ns3 docs doxygen" or "./ns3 docs doxygen-no-build" to build the
  *  documentation.  The doc/ directory contains
  * configuration for Doxygen (doxygen.conf) and main.h.  The Doxygen 
  * build process puts html files into the doc/html/ directory, and latex 

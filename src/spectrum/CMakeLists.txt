@@ -1,5 +1,3 @@
-set(name spectrum)
-
 set(source_files
     helper/adhoc-aloha-noack-ideal-phy-helper.cc
     helper/spectrum-analyzer-helper.cc
@@ -27,6 +25,7 @@ set(source_files
     model/spectrum-model.cc
     model/spectrum-phy.cc
     model/spectrum-propagation-loss-model.cc
+    model/phased-array-spectrum-propagation-loss-model.cc
     model/spectrum-signal-parameters.cc
     model/spectrum-value.cc
     model/three-gpp-channel-model.cc
@@ -64,6 +63,7 @@ set(header_files
     model/spectrum-model.h
     model/spectrum-phy.h
     model/spectrum-propagation-loss-model.h
+    model/phased-array-spectrum-propagation-loss-model.h
     model/spectrum-signal-parameters.h
     model/spectrum-value.h
     model/three-gpp-channel-model.h
@@ -75,9 +75,13 @@ set(header_files
     test/spectrum-test.h
 )
 
-set(libraries_to_link ${libpropagation} ${libantenna})
-
-set(test_sources
+build_lib(
+  LIBNAME spectrum
+  SOURCE_FILES ${source_files}
+  HEADER_FILES ${header_files}
+  LIBRARIES_TO_LINK ${libpropagation}
+                    ${libantenna}
+  TEST_SOURCES
     test/spectrum-ideal-phy-test.cc
     test/spectrum-interference-test.cc
     test/spectrum-value-test.cc
@@ -85,8 +89,4 @@ set(test_sources
     test/three-gpp-channel-test-suite.cc
     test/tv-helper-distribution-test.cc
     test/tv-spectrum-transmitter-test.cc
-)
-
-build_lib("${name}" "${source_files}" "${header_files}" "${libraries_to_link}"
-          "${test_sources}"
 )

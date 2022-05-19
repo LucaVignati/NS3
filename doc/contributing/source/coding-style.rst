@@ -366,6 +366,7 @@ Miscellaneous items
 
 - The following emacs mode line should be the first line in a file:
   ::
+
     /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 
 - ``NS_LOG_COMPONENT_DEFINE("log-component-name");`` statements should be
@@ -375,11 +376,13 @@ Miscellaneous items
 
 - Const reference syntax:
   ::
+
     void MySub (const T&);    // Method 1  (prefer this syntax)
     void MySub (T const&);    // Method 2  (avoid this syntax)
 
 - Use a space between the function name and the parentheses, e.g.:
   ::
+
     void MySub(const T&);     // avoid this
     void MySub (const T&);    // use this instead
   This spacing rule applies both to function declarations and invocations.
@@ -390,15 +393,19 @@ Miscellaneous items
 
 - Do not use ``nil`` or ``NULL`` constants; use ``0`` (improves portability)
 
-- Consider whether you want the default copy constructor and assignment
-  operator in your class, and if not, make them private such as follows:
+- Consider whether you want the default constructor, copy constructor, or assignment
+  operator in your class, and if not, explicitly mark them as deleted:
   ::
-    private:
-      ClassName (const Classname&);
-      ClassName& operator= (const ClassName&)
+
+    public:
+      // Explain why these are not supported
+      ClassName () = delete;
+      ClassName (const ClassName&) = delete;
+      ClassName& operator= (const ClassName&) = delete;
 
 - Avoid returning a reference to an internal or local member of an object:
   ::
+
     a_type& foo (void);  // should be avoided, return a pointer or an object.
     const a_type& foo (void); // same as above
   This guidance does not apply to the use of references to implement operators.
@@ -410,9 +417,11 @@ Miscellaneous items
 
 - For standard headers, use the C++ style of inclusion, such as
   ::
+
     #include <cheader>
   instead of
   ::
+
     #include <header.h>
 
 - Do not bring the C++ standard library namespace into |ns3| source files by
@@ -424,20 +433,57 @@ Miscellaneous items
 
   - inside .h files, always use
     ::
+
       #include <ns3/header.h>
 
   - inside .cc files, use
     ::
+
       #include "header.h"
     if file is in same directory, otherwise use
     ::
+
       #include <ns3/header.h>
 
-- When writing library code, try to avoid the use of unused function
-  parameters; use the ``NS_UNUSED ()`` macro to explicitly note that a
-  parameter is intentionally ignored. However, when writing client code 
-  (tests and examples), ``NS_UNUSED()`` is not required and may be avoided
-  especially if the author feels that it clutters the code (example: hooking
-  a trace source to gather program output, but not using all of the parameters
-  that the trace source provides).
+- Compilers will typically issue warnings on unused entities (e.g., variables,
+  function parameters).  Use the ``[[maybe_unused]]`` attribute to suppress
+  such warnings when the entity may be unused depending on how the code
+  is compiled (e.g., if the entity is only used in a logging statement or
+  an assert statement).  Example (parameter 'p' is only used for logging):
+  ::
+    void
+    TcpSocketBase::CompleteFork (Ptr<Packet> p [[maybe_unused]], const TcpHeader& h,
+                             const Address& fromAddress, const Address& toAddress)
+    {
+    NS_LOG_FUNCTION (this << p << h << fromAddress << toAddress);
+    ...
+
+  In function or method parameters, if the parameter is definitely unused,
+  it should be left unnamed.  Example (second parameter is not used):
+  ::
+    void
+    UanMacAloha::RxPacketGood (Ptr<Packet> pkt, double, UanTxMode txMode)
+    {
+      UanHeaderCommon header;
+      pkt->RemoveHeader (header);
+      ...
+
+  In this case, the parameter is also not referenced by Doxygen; e.g.:
+  ::
+    /*
+     * Receive packet from lower layer (passed to PHY as callback).
+     *
+     * \param pkt Packet being received.
+     * \param txMode Mode of received packet.
+     */
+    void RxPacketGood (Ptr<Packet> pkt, double, UanTxMode txMode);
+
+  The omission is preferred to commenting out unused parameters such as:
+  ::
+    void
+    UanMacAloha::RxPacketGood (Ptr<Packet> pkt, double /*sinr*/, UanTxMode txMode)
+    {
+      UanHeaderCommon header;
+      pkt->RemoveHeader (header);
+      ...
 

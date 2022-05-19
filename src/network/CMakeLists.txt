@@ -1,5 +1,3 @@
-set(name network)
-
 set(source_files
     helper/application-container.cc
     helper/delay-jitter-estimation.cc
@@ -148,9 +146,13 @@ set(header_files
     utils/sll-header.h
 )
 
-set(libraries_to_link ${libcore} ${libstats})
-
-set(test_sources
+build_lib(
+  LIBNAME network
+  SOURCE_FILES ${source_files}
+  HEADER_FILES ${header_files}
+  LIBRARIES_TO_LINK ${libcore}
+                    ${libstats}
+  TEST_SOURCES
     test/bit-serializer-test.cc
     test/buffer-test.cc
     test/drop-tail-queue-test-suite.cc
@@ -164,8 +166,4 @@ set(test_sources
     test/pcap-file-test-suite.cc
     test/sequence-number-test-suite.cc
     test/test-data-rate.cc
-)
-
-build_lib("${name}" "${source_files}" "${header_files}" "${libraries_to_link}"
-          "${test_sources}"
 )

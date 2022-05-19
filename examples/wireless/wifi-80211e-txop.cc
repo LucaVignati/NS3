@@ -55,7 +55,7 @@
 //
 // The user can select the distance between the stations and the APs, can enable/disable the RTS/CTS mechanism
 // and can choose the payload size and the simulation duration.
-// Example: ./ns3 --run "wifi-80211e-txop --distance=10 --simulationTime=20 --payloadSize=1000"
+// Example: ./ns3 run "wifi-80211e-txop --distance=10 --simulationTime=20 --payloadSize=1000"
 //
 // The output prints the throughput measured for the 4 cases/networks described above. When TXOP is enabled, results show
 // increased throughput since the channel is granted for a longer duration. TXOP is enabled by default for AC_VI and AC_VO,
@@ -115,7 +115,8 @@ int main (int argc, char *argv[])
   phy.SetPcapDataLinkType (WifiPhyHelper::DLT_IEEE802_11_RADIO);
   phy.SetChannel (channel.Create ());
 
-  WifiHelper wifi; //the default standard of 802.11a will be selected by this helper since the program doesn't specify another one
+  WifiHelper wifi;
+  wifi.SetStandard (WIFI_STANDARD_80211a);
   wifi.SetRemoteStationManager ("ns3::IdealWifiManager");
   WifiMacHelper mac;
 

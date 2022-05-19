@@ -40,9 +40,9 @@ class AttributeChecker;
 /**
  * A container for one type of attribute.
  * 
- * The container uses \ref A to parse items into elements.
+ * The container uses \p A to parse items into elements.
  * Internally the container is always a list but an instance
- * can return the items in a container specified by \ref C.
+ * can return the items in a container specified by \p C.
  * 
  * @tparam A AttributeValue type to be contained.
  * @tparam C Possibly templated container class returned by Get.
@@ -68,7 +68,7 @@ public:
 
   // use underlying AttributeValue to get return element type
   /** Item type of container returned by Get. */
-  typedef typename std::result_of<decltype(&A::Get)(A)>::type item_type;
+  typedef typename std::invoke_result_t<decltype(&A::Get), A> item_type;
   /** Type of container returned. */
   typedef C<item_type> result_type;
 
@@ -112,8 +112,8 @@ public:
   /**
    * Copy items from container c.
    * 
-   * This method assumes \ref c has stl-style begin and end methods.
-   * The AttributeContainerValue value is cleared before copying from \ref c.
+   * This method assumes \p c has stl-style begin and end methods.
+   * The AttributeContainerValue value is cleared before copying from \p c.
    * @tparam T type of container.
    * \param c Container from which to copy items.
    */

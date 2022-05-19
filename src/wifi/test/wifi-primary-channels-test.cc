@@ -18,6 +18,8 @@
  * Author: Stefano Avallone <stavallo@unina.it>
  */
 
+#include "ns3/boolean.h"
+#include "ns3/enum.h"
 #include "ns3/test.h"
 #include "ns3/wifi-net-device.h"
 #include "ns3/mobility-helper.h"
@@ -266,14 +268,14 @@ WifiPrimaryChannelsTest::ReceiveUl (uint8_t bss, Ptr<WifiPsdu> psdu, RxSignalInf
                                     WifiTxVector txVector, std::vector<bool> perMpduStatus)
 {
   // if the BSS color is zero, this AP might receive the frame sent by another AP. Given that
-  // stations only send TB PPDUs, we discard this frame if the TX vector is UL MU.
+  // stations only send TB PPDUs, we ignore this frame if the TX vector is not UL MU.
   if (psdu->GetNMpdus () == 1 && psdu->GetHeader (0).IsQosData () && txVector.IsUlMu ())
     {
       auto dev = DynamicCast<WifiNetDevice> (m_apDevices.Get (bss));
 
       uint16_t staId = txVector.GetHeMuUserInfoMap ().begin ()->first;
       uint8_t station = staId - 1;
-      NS_LOG_INFO ("RECEIVED FROM BSS=" << +bss << " STA=" << +station
+      NS_LOG_INFO ("RECEIVED FROM BSSID=" << psdu->GetHeader (0).GetAddr3 () << " STA=" << +station
                    << "  " << *psdu);
       // the MAC received a PSDU containing a QoS data frame from the PHY
       NS_TEST_EXPECT_MSG_EQ (m_received[bss].test (station), false, "AP of BSS " << +bss
@@ -343,7 +345,7 @@ WifiPrimaryChannelsTest::DoSetup (void)
   phy.SetChannel (spectrumChannel);
 
   WifiHelper wifi;
-  wifi.SetStandard (WIFI_STANDARD_80211ax_5GHZ);
+  wifi.SetStandard (WIFI_STANDARD_80211ax);
   wifi.SetRemoteStationManager ("ns3::ConstantRateWifiManager");
 
   WifiMacHelper mac;
@@ -615,7 +617,7 @@ WifiPrimaryChannelsTest::DoRun (void)
     }
 
   /*
-   * Repeat the same scheme as before with DL MU transmissions. For each transmission
+   * Repeat the same scheme as before with UL MU transmissions. For each transmission
    * channel width, every round is repeated as many times as the number of ways in
    * which we can partition the transmission channel width in equal sized RUs.
    */
@@ -751,6 +753,7 @@ WifiPrimaryChannelsTest::DoSendHeTbPpdu (uint8_t bss, uint16_t txChannelWidth, H
 
   Time duration = Seconds (0);
   uint16_t length = 0;
+  WifiTxVector trigVector (HePhy::GetHeMcs8 (), 0, WIFI_PREAMBLE_HE_TB, 3200, 1, 1, 0, txChannelWidth, false, false, false, bssColor);
 
   for (std::size_t i = 1; i <= nRus; i++)
     {
@@ -765,6 +768,7 @@ WifiPrimaryChannelsTest::DoSendHeTbPpdu (uint8_t bss, uint16_t txChannelWidth, H
 
       WifiTxVector txVector (HePhy::GetHeMcs8 (), 0, WIFI_PREAMBLE_HE_TB, 3200, 1, 1, 0, txChannelWidth, false, false, false, bssColor);
       txVector.SetHeMuUserInfo (staId, {{ruType, index, primary80}, HePhy::GetHeMcs8 (), 1});
+      trigVector.SetHeMuUserInfo (staId, {{ruType, index, primary80}, HePhy::GetHeMcs8 (), 1});
 
       hdr.SetAddr2 (staDev->GetMac ()->GetAddress ());
       Ptr<const WifiPsdu> psdu = Create<const WifiPsdu> (Create<Packet> (1000), hdr);
@@ -774,13 +778,18 @@ WifiPrimaryChannelsTest::DoSendHeTbPpdu (uint8_t bss, uint16_t txChannelWidth, H
           // calculate just once
           duration = WifiPhy::CalculateTxDuration (psdu->GetSize (), txVector,
                                                    staDev->GetMac ()->GetWifiPhy ()->GetPhyBand (), staId);
-          length = HePhy::ConvertHeTbPpduDurationToLSigLength (duration,
-                                                               staDev->GetMac ()->GetWifiPhy ()->GetPhyBand ());
+          std::tie (length, duration) = HePhy::ConvertHeTbPpduDurationToLSigLength (duration, txVector,
+                                                                                    staDev->GetMac ()->GetWifiPhy ()->GetPhyBand ());
         }
       txVector.SetLength (length);
 
       staDev->GetPhy ()->Send (WifiConstPsduMap {{staId, psdu}}, txVector);
     }
+
+  // AP's PHY expects to receive a TRIGVECTOR (just once)
+  trigVector.SetLength (length);
+  auto apHePhy = StaticCast<HePhy> (apDev->GetPhy ()->GetPhyEntity (WIFI_MOD_CLASS_HE));
+  apHePhy->SetTrigVector (trigVector, duration);
 }
 
 void
@@ -865,7 +874,9 @@ WifiPrimaryChannelsTest::CheckReceivedMuPpdus (std::set<uint8_t> txBss, uint16_t
     {
       if (txBss.find (bss) != txBss.end ())
         {
-          // Due to AID filtering, only stations that are addressed by the MU PPDU do hear the frame
+          // There was a transmission in this BSS.
+          // [DL] Due to AID filtering, only stations that are addressed by the MU PPDU do hear the frame
+          // [UL] The AP hears a TB PPDU sent by all and only the solicited stations
           for (uint8_t sta = 0; sta < nRus; sta++)
             {
               NS_TEST_EXPECT_MSG_EQ (m_received[bss].test (sta), true,
@@ -883,7 +894,8 @@ WifiPrimaryChannelsTest::CheckReceivedMuPpdus (std::set<uint8_t> txBss, uint16_t
                                      << (isDlMu ? "by" : "from") << " station [" << +bss << "]["
                                      << +sta << "]");
             }
-          // only the addressed stations actually processed the frames
+          // [DL] Only the addressed stations actually processed the frames
+          // [UL] The AP processed the frames sent by all and only the addressed stations
           for (uint8_t sta = 0; sta < nRus; sta++)
             {
               NS_TEST_EXPECT_MSG_EQ (m_processed[bss].test (sta), true,
@@ -904,10 +916,11 @@ WifiPrimaryChannelsTest::CheckReceivedMuPpdus (std::set<uint8_t> txBss, uint16_t
         }
       else
         {
-          // There was no transmission in this BSS. If BSS Color filtering is enabled or no frame
-          // transmission overlaps with the primary20 channel of this BSS, stations in this BSS
-          // did not hear any frame.
-          if (m_useDistinctBssColors
+          // There was no transmission in this BSS.
+          // [DL] If BSS Color filtering is enabled or no frame transmission overlaps with
+          // the primary20 channel of this BSS, stations in this BSS did not hear any frame.
+          // [UL] The AP did not hear any TB PPDU because no TRIGVECTOR was passed to the PHY
+          if (!isDlMu || m_useDistinctBssColors
               || std::none_of (txBss.begin (), txBss.end (),
                                [&](const uint8_t& txAp)
                                {
@@ -929,7 +942,7 @@ WifiPrimaryChannelsTest::CheckReceivedMuPpdus (std::set<uint8_t> txBss, uint16_t
             }
           else
             {
-              // stations having the same AID of the stations addressed by the MU PPDI received the frame
+              // [DL] Stations having the same AID of the stations addressed by the MU PPDU received the frame
               for (uint8_t sta = 0; sta < nRus; sta++)
                 {
                   NS_TEST_EXPECT_MSG_EQ (m_received[bss].test (sta), true,

@@ -127,7 +127,7 @@ FrameExchangeManager::GetAckManager (void) const
 }
 
 void
-FrameExchangeManager::SetWifiMac (Ptr<RegularWifiMac> mac)
+FrameExchangeManager::SetWifiMac (Ptr<WifiMac> mac)
 {
   NS_LOG_FUNCTION (this << mac);
   m_mac = mac;
@@ -385,7 +385,8 @@ FrameExchangeManager::SendMpdu (void)
 {
   NS_LOG_FUNCTION (this);
 
-  Time txDuration = m_phy->CalculateTxDuration (m_mpdu->GetSize (), m_txParams.m_txVector, m_phy->GetPhyBand ());
+  Time txDuration = m_phy->CalculateTxDuration (GetPsduSize (m_mpdu, m_txParams.m_txVector),
+                                                m_txParams.m_txVector, m_phy->GetPhyBand ());
 
   NS_ASSERT (m_txParams.m_acknowledgment);
 
@@ -402,7 +403,8 @@ FrameExchangeManager::SendMpdu (void)
     }
   else if (m_txParams.m_acknowledgment->method == WifiAcknowledgment::NORMAL_ACK)
     {
-      m_mpdu->GetHeader ().SetDuration (GetFrameDurationId (m_mpdu->GetHeader (), m_mpdu->GetSize (),
+      m_mpdu->GetHeader ().SetDuration (GetFrameDurationId (m_mpdu->GetHeader (),
+                                                            GetPsduSize (m_mpdu, m_txParams.m_txVector),
                                                             m_txParams, m_fragmentedPacket));
 
       // the timeout duration is "aSIFSTime + aSlotTime + aRxPHYStartDelay, starting
@@ -452,6 +454,12 @@ FrameExchangeManager::DequeueMpdu (Ptr<const WifiMacQueueItem> mpdu)
     {
       m_mac->GetTxopQueue (mpdu->GetQueueAc ())->DequeueIfQueued (mpdu);
     }
+}
+
+uint32_t
+FrameExchangeManager::GetPsduSize (Ptr<const WifiMacQueueItem> mpdu, const WifiTxVector& txVector) const
+{
+  return mpdu->GetSize ();
 }
 
 void
@@ -802,29 +810,47 @@ FrameExchangeManager::CtsTimeout (Ptr<WifiMacQueueItem> rts, const WifiTxVector&
 {
   NS_LOG_FUNCTION (this << *rts << txVector);
 
-  m_mac->GetWifiRemoteStationManager ()->ReportRtsFailed (m_mpdu->GetHeader ());
+  DoCtsTimeout (Create<WifiPsdu> (m_mpdu, true));
+  m_mpdu = nullptr;
+}
 
-  if (!m_mac->GetWifiRemoteStationManager ()->NeedRetransmission (m_mpdu))
+void
+FrameExchangeManager::DoCtsTimeout (Ptr<WifiPsdu> psdu)
+{
+  NS_LOG_FUNCTION (this << *psdu);
+
+  m_mac->GetWifiRemoteStationManager ()->ReportRtsFailed (psdu->GetHeader (0));
+
+  if (!m_mac->GetWifiRemoteStationManager ()->NeedRetransmission (*psdu->begin ()))
     {
-      NS_LOG_DEBUG ("Missed CTS, discard MPDU");
-      // Dequeue the MPDU if it is stored in a queue
-      DequeueMpdu (m_mpdu);
-      NotifyPacketDiscarded (m_mpdu);
-      m_mac->GetWifiRemoteStationManager ()->ReportFinalRtsFailed (m_mpdu->GetHeader ());
+      NS_LOG_DEBUG ("Missed CTS, discard MPDU(s)");
+      m_mac->GetWifiRemoteStationManager ()->ReportFinalRtsFailed (psdu->GetHeader (0));
+      for (const auto& mpdu : *PeekPointer (psdu))
+        {
+          // Dequeue the MPDU if it is stored in a queue
+          DequeueMpdu (mpdu);
+          NotifyPacketDiscarded (mpdu);
+        }
       m_dcf->ResetCw ();
     }
   else
     {
-      NS_LOG_DEBUG ("Missed CTS, retransmit RTS");
-      RetransmitMpduAfterMissedCts (m_mpdu);
+      NS_LOG_DEBUG ("Missed CTS, retransmit MPDU(s)");
       m_dcf->UpdateFailedCw ();
     }
-  m_mpdu = 0;
+  // Make the sequence numbers of the MPDUs available again if the MPDUs have never
+  // been transmitted, both in case the MPDUs have been discarded and in case the
+  // MPDUs have to be transmitted (because a new sequence number is assigned to
+  // MPDUs that have never been transmitted and are selected for transmission)
+  for (const auto& mpdu : *PeekPointer (psdu))
+    {
+      ReleaseSequenceNumber (mpdu);
+    }
   TransmissionFailed ();
 }
 
 void
-FrameExchangeManager::RetransmitMpduAfterMissedCts (Ptr<WifiMacQueueItem> mpdu) const
+FrameExchangeManager::ReleaseSequenceNumber (Ptr<WifiMacQueueItem> mpdu) const
 {
   NS_LOG_FUNCTION (this << *mpdu);
 
@@ -885,8 +911,15 @@ void
 FrameExchangeManager::NotifySwitchingStartNow (Time duration)
 {
   NS_LOG_DEBUG ("Switching channel. Cancelling MAC pending events");
-  m_mac->GetWifiRemoteStationManager ()->Reset ();
-  Reset ();
+  m_mac->NotifyChannelSwitching ();
+  if (m_txTimer.IsRunning ())
+    {
+      // we were transmitting something before channel switching. Since we will
+      // not be able to receive the response, have the timer expire now, so that
+      // we perform the actions required in case of missing response
+      m_txTimer.Reschedule (Seconds (0));
+    }
+  Simulator::ScheduleNow (&FrameExchangeManager::Reset, this);
 }
 
 void

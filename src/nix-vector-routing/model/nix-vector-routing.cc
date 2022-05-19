@@ -44,6 +44,10 @@ NS_OBJECT_TEMPLATE_CLASS_DEFINE (NixVectorRouting, Ipv6RoutingProtocol);
 template <typename T>
 bool NixVectorRouting<T>::g_isCacheDirty = false;
 
+// Epoch starts from one to make it easier to spot an uninitialized NixVector during debug.
+template <typename T>
+uint32_t NixVectorRouting<T>::g_epoch = 1;
+
 template <typename T>
 typename NixVectorRouting<T>::IpAddressToNodeMap NixVectorRouting<T>::g_ipAddressToNodeMap;
 
@@ -56,7 +60,7 @@ NixVectorRouting<T>::GetTypeId (void)
 {
   std::string Tname = GetTypeParamName<NixVectorRouting<T> > ();
   std::string name = (Tname == "Ipv4RoutingProtocol" ? "Ipv4" : "Ipv6");
-  static TypeId tid = TypeId (("ns3::" + name + "NixVectorRouting").c_str ())
+  static TypeId tid = TypeId ("ns3::" + name + "NixVectorRouting")
     .SetParent<T> ()
     .SetGroupName ("NixVectorRouting")
     .template AddConstructor<NixVectorRouting<T> > ()
@@ -183,6 +187,7 @@ NixVectorRouting<T>::GetNixVector (Ptr<Node> source, IpAddress dest, Ptr<NetDevi
   NS_LOG_FUNCTION (this << source << dest << oif);
 
   Ptr<NixVector> nixVector = Create<NixVector> ();
+  nixVector->SetEpoch (g_epoch);
 
   // not in cache, must build the nix vector
   // First, we have to figure out the nodes 
@@ -724,9 +729,11 @@ NixVectorRouting<T>::RouteOutput (Ptr<Packet> p, const IpHeader &header, Ptr<Net
       // Build the nix-vector, given this node and the
       // dest IP address
       nixVectorInCache = GetNixVector (m_node, destAddress, oif);
-
-      // cache it
-      m_nixCache.insert (typename NixMap_t::value_type (destAddress, nixVectorInCache));
+      if (nixVectorInCache)
+      {
+        // cache it
+        m_nixCache.insert (typename NixMap_t::value_type (destAddress, nixVectorInCache));
+      }
     }
 
   // path exists
@@ -852,6 +859,7 @@ NixVectorRouting<T>::RouteInput (Ptr<const Packet> p, const IpHeader &header, Pt
           if (!lcb.IsNull ())
             {
               NS_LOG_LOGIC ("Local delivery to " << destAddress);
+              p->SetNixVector (nullptr);
               lcb (p, header, iif);
               return true;
             }
@@ -893,6 +901,14 @@ NixVectorRouting<T>::RouteInput (Ptr<const Packet> p, const IpHeader &header, Pt
 
   // If nixVector isn't in packet, something went wrong
   NS_ASSERT (nixVector);
+
+  if (nixVector->GetEpoch () != g_epoch)
+    {
+      NS_LOG_LOGIC ("NixVector epoch mismatch (" << nixVector->GetEpoch () << " Vs " << g_epoch
+                                                 << ") - rebuilding it");
+      nixVector = GetNixVector (m_node, destAddress, 0);
+      p->SetNixVector (nixVector);
+    }
 
   // Get the interface number that we go out of, by extracting
   // from the nix-vector
@@ -978,9 +994,14 @@ NixVectorRouting<T>::PrintRoutingTable (Ptr<OutputStreamWrapper> stream, Time::U
             {
               *os << *(it->second) << std::endl;
             }
+          else
+            {
+              *os << "-" << std::endl;
+            }
         }
     }
-  *os << "IpRouteCache:" << std::endl;
+  
+  *os << "IpRouteCache:" << std::endl;  
   if (m_ipRouteCache.size () > 0)
     {
       *os << std::setw (30) << "Destination";
@@ -1238,8 +1259,8 @@ NixVectorRouting<T>::PrintRoutingPath (Ptr<Node> source, IpAddress dest,
   *os << std::resetiosflags (std::ios::adjustfield) << std::setiosflags (std::ios::left);
   *os << "Time: " << Now().As (unit)
       << ", Nix Routing" << std::endl;
-  *os << "Route Path: ";
-  *os << "(Node " << source->GetId () << " to Node " << destNode->GetId () << ", ";
+  *os << "Route path from ";
+  *os << "Node " << source->GetId () << " to Node " << destNode->GetId () << ", ";
   *os << "Nix Vector: ";
 
   // Check the Nix cache
@@ -1253,8 +1274,6 @@ NixVectorRouting<T>::PrintRoutingPath (Ptr<Node> source, IpAddress dest,
       // Build the nix-vector, given the source node and the
       // dest IP address
       nixVectorInCache = GetNixVector (source, dest, nullptr);
-      // cache it
-      m_nixCache.insert (typename NixMap_t::value_type (dest, nixVectorInCache));
     }
 
   if (nixVectorInCache || (!nixVectorInCache && source == destNode))
@@ -1271,7 +1290,7 @@ NixVectorRouting<T>::PrintRoutingPath (Ptr<Node> source, IpAddress dest,
 
           *os << *nixVector;
         }
-      *os << ")" << std::endl;
+      *os << std::endl;
 
       if (source == destNode)
         {
@@ -1349,6 +1368,7 @@ NixVectorRouting<T>::CheckCacheStateAndFlush (void) const
   if (g_isCacheDirty)
     {
       FlushGlobalNixRoutingCache ();
+      g_epoch++;
       g_isCacheDirty = false;
     }
 }

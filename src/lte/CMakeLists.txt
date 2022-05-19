@@ -1,9 +1,20 @@
-set(name lte)
-
+set(emu_sources)
+set(emu_headers)
+set(emu_features)
+set(emu_libraries)
 if(${ENABLE_EMU})
-  set(emu_sources helper/emu-epc-helper.cc)
-  set(emu_headers helper/emu-epc-helper.h)
-  set(emu_libraries ${libfd-net-device})
+  set(emu_sources
+      helper/emu-epc-helper.cc
+  )
+  set(emu_headers
+      helper/emu-epc-helper.h
+  )
+  set(emu_features
+      EmuFdNetDevice
+  )
+  set(emu_libraries
+      ${libfd-net-device}
+  )
 endif()
 
 set(source_files
@@ -268,20 +279,6 @@ set(header_files
     model/tta-ff-mac-scheduler.h
 )
 
-set(libraries_to_link
-    ${emu_libraries}
-    ${libcore}
-    ${libnetwork}
-    ${libspectrum}
-    ${libstats}
-    ${libbuildings}
-    ${libvirtual-net-device}
-    ${libpoint-to-point}
-    ${libapplications}
-    ${libinternet}
-    ${libcsma}
-)
-
 set(test_sources
     test/epc-test-gtpu.cc
     test/epc-test-s1u-downlink.cc
@@ -314,6 +311,7 @@ set(test_sources
     test/lte-test-pathloss-model.cc
     test/lte-test-pf-ff-mac-scheduler.cc
     test/lte-test-phy-error-model.cc
+    test/lte-test-primary-cell-change.cc
     test/lte-test-pss-ff-mac-scheduler.cc
     test/lte-test-radio-link-failure.cc
     test/lte-test-rlc-am-e2e.cc
@@ -321,6 +319,8 @@ set(test_sources
     test/lte-test-rlc-um-e2e.cc
     test/lte-test-rlc-um-transmitter.cc
     test/lte-test-rr-ff-mac-scheduler.cc
+    test/lte-test-secondary-cell-handover.cc
+    test/lte-test-secondary-cell-selection.cc
     test/lte-test-spectrum-value-helper.cc
     test/lte-test-tdbet-ff-mac-scheduler.cc
     test/lte-test-tdmt-ff-mac-scheduler.cc
@@ -342,6 +342,22 @@ set(test_sources
     test/test-lte-x2-handover.cc
 )
 
-build_lib("${name}" "${source_files}" "${header_files}" "${libraries_to_link}"
-          "${test_sources}"
+build_lib(
+  LIBNAME lte
+  SOURCE_FILES ${source_files}
+  HEADER_FILES ${header_files}
+  LIBRARIES_TO_LINK
+    ${emu_libraries}
+    ${libcore}
+    ${libnetwork}
+    ${libspectrum}
+    ${libstats}
+    ${libbuildings}
+    ${libvirtual-net-device}
+    ${libpoint-to-point}
+    ${libapplications}
+    ${libinternet}
+    ${libcsma}
+  TEST_SOURCES ${test_sources}
+  MODULE_ENABLED_FEATURES ${emu_features}
 )
