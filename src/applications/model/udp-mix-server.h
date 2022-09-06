@@ -17,6 +17,7 @@
 
 #ifndef UDP_MIX_SERVER_H
 #define UDP_MIX_SERVER_H
+#define OFFSET 10000
 
 #include "ns3/application.h"
 #include "ns3/event-id.h"
@@ -51,24 +52,19 @@ class IoMusTPacket : public Object
     /**
     * \brief Returns the sequence number contained in the packet
     */
-    virtual int get_seq_n(void);
+    virtual uint32_t get_seq_n(void);
 
     /**
      * \brief Sets the sequence number
      * 
      * \param seq_n The sequence number
      */
-    virtual void set_seq_n(int seq_n);
+    virtual void set_seq_n(uint32_t seq_n);
 
     /**
     * \brief Returns the original packet
     */
     virtual Ptr<Packet> get_packet(void);
-
-    /**
-    * \brief Retrieves the address of the destination where the packet is ment to be sent
-    */
-    virtual Address get_to_address(void);
 
     /**
     * \brief Copies the data containing the payload of the packet
@@ -86,10 +82,11 @@ class IoMusTPacket : public Object
 
   private:
     Time sendTime; //!< The time when the packet has been sent by the client
-    int seqN; //!< The sequence number of the packet
+    uint32_t seqN; //!< The sequence number of the packet
     Address to; //!< The address contained in the packet
     uint8_t *data; //!< Pointer to the payload of the packet
     uint32_t pktSize; //!< Size of the payload of the packet
+    Time arrivalTime; //!< When the packet arrived in the mix server
 };
 
 /**
@@ -116,14 +113,14 @@ class Stream : public Object
      * \param seqN The normalized sequence number
      * \returns A pointer to the corresponding packet
      */
-    virtual Ptr<IoMusTPacket> get_packet(int seqN);
+    virtual Ptr<IoMusTPacket> get_packet(uint32_t seqN);
 
     /**
      * \brief Marks the packet at the specified position as sent
      * 
      * \param seqN The normalized sequence number
      */
-    virtual void set_packet_sent(int seqN);
+    virtual void set_packet_sent(uint32_t seqN);
 
     /**
     * \brief Returns the address of the client associated with this stream
@@ -157,15 +154,15 @@ class Stream : public Object
      * 
      * \returns The sequence number of this stream
      */
-    virtual int convert_seq_n(int norm_seq_n);
+    virtual uint32_t convert_seq_n(uint32_t norm_seq_n);
 
   protected:
     virtual void DoDelete (void);
 
   private:
-    static constexpr int array_size = 100; //!< The size of the array containing the send buffer
+    static constexpr int arraySize = 100; //!< The size of the array containing the send buffer
     Address address; //!< The client's ipv4 address
-    std::array<Ptr<IoMusTPacket>, array_size> send_buffer; //!< Array of packets waiting to be mixed
+    std::array<Ptr<IoMusTPacket>, arraySize> sendBuffer; //!< Array of packets waiting to be mixed
     int offset; //!< Number to be applied to the sequence number to get the normalized sequence number
 };
 
@@ -211,7 +208,7 @@ private:
   * 
   * \param seq_n The normalized sequence number
   */
-  virtual void send_packets(int seq_n);
+  virtual void send_packets(uint32_t seq_n);
 
   /**
   * \brief Checks if the packets with the specified normalized
@@ -220,7 +217,7 @@ private:
   * 
   * \param seq_n The normalized sequence number
   */
-  virtual void check_and_send_packets(int seq_n);
+  virtual void check_and_send_packets(uint32_t seq_n);
 
   /**
   * \brief Instanciates a stream and initializes it.
@@ -239,7 +236,7 @@ private:
   * \param from The address of the client that sent the packet.
   * \param stream The stream associated to the sender.
   */
-  virtual void add_packet(Ptr<IoMusTPacket> packet, Address from, Ptr<Stream> stream);
+  virtual void add_packet(Ptr<IoMusTPacket> packet, Ptr<Stream> stream);
 
   /**
    * \brief Handle a packet reception.
@@ -254,13 +251,15 @@ private:
   Ptr<Socket> m_socket; //!< IPv4 Socket
   Ptr<Socket> m_socket6; //!< IPv6 Socket
   Address m_local; //!< local multicast address
-  bool first_packet = true; //!< Flag that identifies the very first packet
+  bool firstPacket = true; //!< Flag that identifies the very first packet
   std::vector<Ptr<Stream>> streams; //!< The collection of currently active streams
   Time reference_time = MicroSeconds(0); //!< Send time of the first packet of the first stream
-  Time packet_transmission_period; //!< Time between subsequent packets at the sender side.
+  Time packetTransmissionPeriod; //!< Time between subsequent packets at the sender side.
   Time timeout; //!< Time to wait for missing packets before sending out the ones that arrived.
   Ptr<Socket> socket; //!< Pointer to the socket used to send out packets.
-  int oldest_seq_n = -1; //!< The lowest normalized sequence number that packets must have to be accepted
+  uint32_t oldestSeqN = 0; //!< The lowest normalized sequence number that packets must have to be accepted
+  uint32_t newestSeqN = 0;//!< The higest normalized sequence number received thus far
+  int selectionPort = 49;
 
   /// Callbacks for tracing the packet Rx events
   TracedCallback<Ptr<const Packet> > m_rxTrace;

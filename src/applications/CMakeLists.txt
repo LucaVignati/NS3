@@ -26,6 +26,7 @@ build_lib(
     model/udp-forward-server.cc
     model/udp-iomust-client.cc
     model/udp-iomust-server.cc
+    model/udp-mix-server.cc
     model/udp-server.cc
     model/udp-trace-client.cc
   HEADER_FILES
@@ -54,6 +55,7 @@ build_lib(
     model/udp-forward-server.h
     model/udp-iomust-client.h
     model/udp-iomust-server.h
+    model/udp-mix-server.h
     model/udp-server.h
     model/udp-trace-client.h
   LIBRARIES_TO_LINK ${libinternet}

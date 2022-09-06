@@ -42,18 +42,17 @@ IoMusTPacket::IoMusTPacket() {}
 
 IoMusTPacket::IoMusTPacket(Ptr<Packet> packet)
 {
-  uint64_t time;
-  uint32_t seq_n;
+  int64_t time;
   pktSize = packet->GetSize();
   data = new uint8_t[pktSize];
   packet->CopyData(data, pktSize);
   memcpy(&time, &data[5], sizeof(time));
-  memcpy(&seq_n, &data[5 + sizeof(time)], sizeof(seq_n));
-  seqN = static_cast<int>(seq_n);
+  memcpy(&seqN, &data[5 + sizeof(time)], sizeof(seqN));
   Ipv4Address ip = Ipv4Address();
   ip = ip.Deserialize(data);
   to = InetSocketAddress(ip, data[4]);
   sendTime = MicroSeconds(time);
+  arrivalTime = Simulator::Now();
 }
 
 IoMusTPacket::IoMusTPacket(Ptr<IoMusTPacket> packet)
@@ -63,6 +62,7 @@ IoMusTPacket::IoMusTPacket(Ptr<IoMusTPacket> packet)
   data = new uint8_t[pktSize];
   packet->copy_data(data);
   memcpy(&data[5], &time, sizeof(time));
+  arrivalTime = Simulator::Now() + MilliSeconds(1);
 }
 
 IoMusTPacket::~IoMusTPacket()
@@ -76,28 +76,29 @@ IoMusTPacket::get_send_time(void)
   return sendTime;
 }
 
-int
+uint32_t
 IoMusTPacket::get_seq_n(void)
 {
   return seqN;
 }
 
 void
-IoMusTPacket::set_seq_n(int seq_n)
+IoMusTPacket::set_seq_n(uint32_t seqN)
 {
-  seqN = seq_n;
+  this->seqN = seqN;
+  memcpy(&data[5 + sizeof(int64_t)], &this->seqN, sizeof(this->seqN));
 }
 
 Ptr<Packet>
 IoMusTPacket::get_packet(void)
 {
-  return Create<Packet> (data, pktSize);
-}
-
-Address
-IoMusTPacket::get_to_address()
-{
-  return to;
+  Ptr<Packet> packet = Create<Packet> (data, pktSize);
+  // int stayTime = Simulator::Now().GetMilliSeconds() - arrivalTime.GetMilliSeconds();
+  // std::cout << stayTime << std::endl;
+  // Ptr<IoMusTPacket> packetWrapper = new IoMusTPacket(packet);
+  // uint32_t seqN = packetWrapper->get_seq_n();
+  // std::cout << "seqN: " << seqN << std::endl;
+  return packet;
 }
 
 void
@@ -117,36 +118,37 @@ IoMusTPacket::DoDelete()
 {
 }
 
-Stream::Stream (Address client_address)
+Stream::Stream (Address clientAddress)
 {
-  address = client_address;
-  send_buffer.fill(NULL);
+  address = clientAddress;
+  sendBuffer.fill(NULL);
 }
 
 Stream::~Stream()
 {
-  send_buffer.fill(NULL);
+  sendBuffer.fill(NULL);
 }
 
 int
 Stream::add_packet(Ptr<IoMusTPacket> packet)
 {
-  int seq_n = packet->get_seq_n();
-  int norm_seq_n = seq_n - offset;
-  send_buffer[norm_seq_n % array_size] = packet;
-  return norm_seq_n;
+  int seqN = packet->get_seq_n();
+  int normSeqN = seqN - offset + OFFSET;
+  int idx = normSeqN % arraySize;
+  sendBuffer[idx] = packet;
+  return normSeqN;
 }
 
 Ptr<IoMusTPacket>
-Stream::get_packet(int seqN)
+Stream::get_packet(uint32_t seqN)
 {
-  return send_buffer[seqN % array_size];
+  return sendBuffer[seqN % arraySize];
 }
 
 void
-Stream::set_packet_sent(int seq_n)
+Stream::set_packet_sent(uint32_t normSeqN)
 {
-  send_buffer[seq_n % array_size] = NULL;
+  sendBuffer[normSeqN % arraySize] = NULL;
 }
 
 Address
@@ -167,10 +169,10 @@ Stream::get_offset(void)
   return offset;
 }
 
-int
-Stream::convert_seq_n(int norm_seq_n)
+uint32_t
+Stream::convert_seq_n(uint32_t normSeqN)
 {
-  return norm_seq_n + offset;
+  return static_cast<uint32_t>(normSeqN - offset - OFFSET);
 }
 
 void
@@ -195,7 +197,7 @@ UdpMixServer::GetTypeId (void)
                    MakeUintegerChecker<uint16_t> ())
     .AddAttribute ("TransmissionPeriod", "Time between the transmission of two consecutive packets.",
                    TimeValue (MilliSeconds (1/1500)),
-                   MakeTimeAccessor(&UdpMixServer::packet_transmission_period),
+                   MakeTimeAccessor(&UdpMixServer::packetTransmissionPeriod),
                    MakeTimeChecker())
     .AddAttribute ("Timeout", "Maximum time to wait for packets of the same slots to arrive",
                    TimeValue (MilliSeconds (10)),
@@ -305,69 +307,71 @@ UdpMixServer::StopApplication ()
 }
 
 void
-UdpMixServer::send_packets(int seq_n)
+UdpMixServer::send_packets(uint32_t normSeqN)
 {
   Ptr<IoMusTPacket> p;
   for (Ptr<Stream> stream : streams)
   {
-    p = stream->get_packet(seq_n);
+    p = stream->get_packet(normSeqN);
     if (p == NULL)
     {
       for (Ptr<Stream> s : streams)
       {
-        p = s->get_packet(seq_n);
+        p = s->get_packet(normSeqN);
         if (p != NULL) break;
       }
       p = new IoMusTPacket(p);
     }
-    p->set_seq_n(stream->convert_seq_n(seq_n));
+    //std::cout << "normSeqN: " << normSeqN << std::endl;
+    p->set_seq_n(stream->convert_seq_n(normSeqN));
     int (Socket::*fp)(Ptr<ns3::Packet>, uint32_t, const ns3::Address&) = &ns3::Socket::SendTo;
     Simulator::Schedule(Seconds(0.0002), fp, socket, p->get_packet(), 0, stream->get_address());
   }
   for (Ptr<Stream> stream : streams)
   {
-    stream->set_packet_sent(seq_n);
+    stream->set_packet_sent(normSeqN);
   }
+  if (m_port == selectionPort)
+    std::cout << std::endl << Simulator::Now().As(Time::S) << "\tSent slot " << normSeqN << std::endl;
 }
 
 void
-UdpMixServer::check_and_send_packets(int seq_n)
+UdpMixServer::check_and_send_packets(uint32_t normSeqN)
 {
   Ptr<IoMusTPacket> p;
-  bool already_sent = true;
-  Ptr<Stream> stream;
+  bool alreadySent = true;
   for (Ptr<Stream> stream : streams)
   {
-    p = stream->get_packet(seq_n);
+    p = stream->get_packet(normSeqN);
     if (p != NULL)
     {
-      already_sent = false;
+      alreadySent = false;
     }
   }
-  if (!already_sent)
+  if (!alreadySent)
   {
-    send_packets(seq_n);
+    send_packets(normSeqN);
   }
-  oldest_seq_n = seq_n;
+  oldestSeqN = normSeqN;
 }
 
 Ptr<Stream>
-UdpMixServer::add_stream(Address client_address, Ptr<IoMusTPacket> packet)
+UdpMixServer::add_stream(Address clientAddress, Ptr<IoMusTPacket> packet)
 {
-  Time send_time = packet->get_send_time();
-  int seq_n = packet->get_seq_n();
-  Time stream_reference_time = send_time - seq_n * packet_transmission_period;
+  Time sendTime = packet->get_send_time();
+  int seqN = packet->get_seq_n();
+  Time streamStartTime = sendTime - seqN * packetTransmissionPeriod;
   int offset;
-  streams.push_back(new Stream(client_address));
+  streams.push_back(new Stream(clientAddress));
   Ptr<Stream> stream = streams.back();
   
   if (reference_time != MicroSeconds(0))
   {
-    offset = round(static_cast<float>(reference_time.GetMicroSeconds() - stream_reference_time.GetMicroSeconds()) / packet_transmission_period.GetMicroSeconds());
+    offset = round(static_cast<float>(reference_time.GetMicroSeconds() - streamStartTime.GetMicroSeconds()) / packetTransmissionPeriod.GetMicroSeconds());
   }
   else
   {
-    reference_time = stream_reference_time;
+    reference_time = streamStartTime;
     offset = 0;
   }
   stream->set_offset(offset);
@@ -375,31 +379,41 @@ UdpMixServer::add_stream(Address client_address, Ptr<IoMusTPacket> packet)
 }
 
 void
-UdpMixServer::add_packet(Ptr<IoMusTPacket> packet, Address from, Ptr<Stream> stream)
+UdpMixServer::add_packet(Ptr<IoMusTPacket> packet, Ptr<Stream> stream)
 {
-  int seq_n = stream->add_packet(packet);
+  uint32_t normSeqN = stream->add_packet(packet);
+  if (normSeqN > newestSeqN) newestSeqN = normSeqN;
   
-  if (seq_n > oldest_seq_n)
+  if (m_port == selectionPort)
+    std::cout << "Norm Seq: " << normSeqN;
+
+  if (normSeqN > oldestSeqN)
   {
     Ptr<IoMusTPacket> p;
-    bool packets_ready = true;
-    for (Ptr<Stream> stream : streams)
+    bool packetsReady = true;
+    for (Ptr<Stream> s : streams)
     {
-      p = stream->get_packet(seq_n);
+      p = s->get_packet(normSeqN);
       if (p == NULL)
       {
-        packets_ready = false;
+        packetsReady = false;
         break;
       }
     }
-    if (packets_ready)
+    if (packetsReady)
     {
-      send_packets(seq_n);
+      send_packets(normSeqN);
     }
-    else
-    {
-      Simulator::Schedule(timeout, &ns3::UdpMixServer::check_and_send_packets, this, seq_n);
-    }
+    Simulator::Schedule(timeout, &ns3::UdpMixServer::check_and_send_packets, this, normSeqN); // Schedule anyway, it will check if packets have already been sent in the meantime
+    if (m_port == selectionPort)
+      std::cout << std::endl;
+  }
+  else
+  {
+    stream->set_packet_sent(normSeqN);
+    if (m_port == selectionPort)
+      std::cout << "\tRejected" << std::endl;
+    // Pacchetto in ritardo o perso in uplink
   }
 }
 
@@ -413,9 +427,7 @@ UdpMixServer::HandleRead (Ptr<Socket> socket)
   Address from;
   Address to;
   Address localAddress;
-  bool new_stream;
-  //Time delay = Seconds(0);
-  //std::cout << delay << std::endl;
+  bool newStream;
 
   while ((packet = socket->RecvFrom (from)))
     {
@@ -426,7 +438,7 @@ UdpMixServer::HandleRead (Ptr<Socket> socket)
         {
           NS_LOG_INFO ("At time " << Simulator::Now ().As (Time::S) << " server received " << packet->GetSize () << " bytes from " <<
                        InetSocketAddress::ConvertFrom (from).GetIpv4 () << " port " <<
-                       InetSocketAddress::ConvertFrom (from).GetPort ());
+                       InetSocketAddress::ConvertFrom (from).GetPort ()); 
         }
       else if (Inet6SocketAddress::IsMatchingType (from))
         {
@@ -438,28 +450,57 @@ UdpMixServer::HandleRead (Ptr<Socket> socket)
       Ipv4Address ip = InetSocketAddress::ConvertFrom(from).GetIpv4();
       Address senderAddress = InetSocketAddress(ip, 5);
 
-      Ptr<IoMusTPacket> packet_wrapper = new IoMusTPacket(packet);
+      if (m_port == selectionPort)
+        std::cout << Simulator::Now().As(Time::S) << "\tReceived from ";
 
-      if (first_packet)
+      Ptr<IoMusTPacket> packetWrapper = new IoMusTPacket(packet);
+
+      if (firstPacket)
       {
-        Ptr<Stream> stream = add_stream(senderAddress, packet_wrapper);
-        first_packet = false;
+        Ptr<Stream> stream = add_stream(senderAddress, packetWrapper);
+        firstPacket = false;
       }
-      new_stream = true;
-      Ptr<Stream> stream;
+      newStream = true;
+      int i = 0;
       for (Ptr<Stream> stream : streams)
       {
-        Address client_address = stream->get_address();
-        if (client_address == senderAddress)
+        Address clientAddress = stream->get_address();
+        if (clientAddress == senderAddress)
         {
-          add_packet(packet_wrapper, senderAddress , stream);
-          new_stream = false;
+          if (m_port == selectionPort)
+            std::cout << "[" << i << "]\t";
+          add_packet(packetWrapper, stream);
+          newStream = false;
         }
+        i++;
       }
-      if (new_stream)
+      if (newStream)
       {
-        Ptr<Stream> stream = add_stream(senderAddress, packet_wrapper);
-        add_packet(packet_wrapper, senderAddress, stream);
+        Ptr<Stream> stream = add_stream(senderAddress, packetWrapper);
+        add_packet(packetWrapper, stream);
+      }
+
+      if (m_port == selectionPort)
+      {
+        i = 0;
+        std::cout << "Streams\t";
+        for (Ptr<Stream> stream : streams)
+        {
+          std::cout << "[" << i << "]\t";
+          i++;
+        }
+        std::cout << std::endl;
+
+        for (i = 0; i < 100; i++)
+        {
+          std::cout << newestSeqN - i << "\t ";
+          for (Ptr<Stream> stream : streams)
+          {
+            int present = stream->get_packet(newestSeqN - i) == NULL ? 0 : 1;
+            std::cout << present << "\t ";
+          }
+          std::cout << -i << std::endl;
+        }
       }
 
       /*ip.Print(std::cout);

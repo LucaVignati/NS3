@@ -67,7 +67,9 @@ outputProva1
 plot.sh
 transferFile.txt
 simulationLog.txt
-graphs/
+graphs*/
+4G-*
+5G-*
 .gitlab-ci-local/
 .idea/
 cmake-cache/

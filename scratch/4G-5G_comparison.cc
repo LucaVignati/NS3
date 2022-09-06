@@ -1,6 +1,5 @@
 #include "ns3/lte-helper.h"
 #include "ns3/epc-helper.h"
-#include "ns3/nr-helper.h"
 #include "ns3/nr-point-to-point-epc-helper.h"
 #include "ns3/core-module.h"
 #include "ns3/network-module.h"
@@ -31,14 +30,16 @@ using namespace ns3;
 
 void populate_positions(Ptr<ListPositionAllocator> positionAlloc, int numberOfueNodes, std::vector<Vector> enbs, int radius, double height, std::string filename, bool traffic)
 {
-    int enbIndex, rho;
-    double theta;
+    int enbIndex; //, rho;
+    //double theta;
     bool redo;
     Vector3D ue;
     std::vector<Vector> ues;
     std::ofstream positionsFile;
     positionsFile.open(filename.c_str(), std::ios_base::app);
     std::string trafficString;
+    float spatialResolution = 0.1; // Meters
+    int max_mod = static_cast<float>(2*radius)/spatialResolution;
     if (traffic)
         trafficString = "t";
     else
@@ -53,16 +54,27 @@ void populate_positions(Ptr<ListPositionAllocator> positionAlloc, int numberOfue
         while (redo)
         {
             redo = false;
-            rho = rand() % radius + 1;
-            theta = static_cast<double>(rand() % 628) / 100;
             enbIndex = rand() % enbs.size();
-            ue.x = static_cast<int>(rho * cos(theta) + enbs[enbIndex].x);
-            ue.y = static_cast<int>(rho * sin(theta) + enbs[enbIndex].y);
+            ue.x = (rand() % max_mod) * spatialResolution + enbs[enbIndex].x - radius;
+            ue.y = (rand() % max_mod) * spatialResolution + enbs[enbIndex].y - radius;
+            // rho = rand() % radius + 1;
+            // theta = static_cast<double>(rand() % 628) / 100;
+            // ue.x = static_cast<int>(rho * cos(theta) + enbs[enbIndex].x);
+            // ue.y = static_cast<int>(rho * sin(theta) + enbs[enbIndex].y);
             ue.z = height;
-            for (Vector u : ues)
+            if (sqrt(pow(ue.x - enbs[enbIndex].x, 2) + pow(ue.y - enbs[enbIndex].y, 2)) > radius) // outside range
             {
-                if (ue.x == u.x && ue.y == u.y && ue.z == u.z)
-                    redo = true;
+                redo = true;
+            }
+            else
+            {
+                for (Vector u : ues)
+                {
+                    if (ue.x == u.x && ue.y == u.y && ue.z == u.z) // same position
+                    {
+                        redo = true;
+                    }
+                }
             }
         }
         ues.push_back(ue);
@@ -127,19 +139,23 @@ main (int argc, char *argv[])
     uint32_t mixServerTimeout = 10;
     std::string comment = "";
     int seed = 0;
-    int cell2cellDistance = 500;
+    float multiplier = 2;
     int enbHeight = 25;
     int numerology = 2;
+    bool shadowing = true;
+    bool enableUlPc = true;
     double frequency = 2035e6; // central frequency
     double bwpBandwidth = 20e6; //bandwidth of the UL and the DL
     double spacingBandwidth = 170e6; // bandwidth of the bandwidth part used to separate the UL from the DL
     enum BandwidthPartInfo::Scenario scenarioEnum = BandwidthPartInfo::UMa; //UMi_Buildings
 
+    std::string path = "graphs";
+
     std::vector<std::vector<int>> combinations;
     std::vector<int> combination;
 
     int trafficUeNodesPerenb = 10;
-    int numberOfTrafficEnbNodes;
+    int numberOfTrafficEnbNodes = 0;
 
     Ptr<LteHelper> lteHelper;
     Ptr<NrHelper> nrHelper;
@@ -199,9 +215,17 @@ main (int argc, char *argv[])
     cmd.AddValue("numerology",
                 "Value defining the subcarrier spaceing and symbol lenght",
                 numerology);
+    cmd.AddValue("path",
+                "Path where the results will be saved",
+                path);
+    cmd.AddValue("trafficDistanceMultiplier",
+                "Distance between the traffic eNBs and the user eNBs",
+                multiplier);
     cmd.Parse(argc, argv);
 
     srand(seed);
+
+    int cell2cellDistance = 500*multiplier;
 
     five_g = generation.compare("5G") == 0;
 
@@ -221,7 +245,7 @@ main (int argc, char *argv[])
     numberOfBands = combination.size();
     uint16_t bands[numberOfBands];
 
-    std::string root = "graphs/" + generation;
+    std::string root = path + "/" + generation;
     std::string folder = root + "/" + ues + " UEs/";
     std::string fileNamePrefix;
 
@@ -331,10 +355,13 @@ main (int argc, char *argv[])
 
         band.AddCc (std::move(cc0));
 
-        nrHelper->SetPathlossAttribute ("ShadowingEnabled", BooleanValue (true));
+        nrHelper->SetPathlossAttribute ("ShadowingEnabled", BooleanValue (shadowing));
+        nrHelper->SetUePhyAttribute ("EnableUplinkPowerControl", BooleanValue (enableUlPc));
 
+        // Disable fast fading
+        auto bandMask = NrHelper::INIT_PROPAGATION | NrHelper::INIT_CHANNEL;
         //Initialize channel and pathloss, plus other things inside band.
-        nrHelper->InitializeOperationBand (&band);
+        nrHelper->InitializeOperationBand (&band, bandMask);
         allBwps = CcBwpCreator::GetAllBwps ({band});
 
         // Configure ideal beamforming method
@@ -346,13 +373,13 @@ main (int argc, char *argv[])
         nrHelper->SetSchedulerTypeId (NrMacSchedulerTdmaPF::GetTypeId ());
 
         // Antennas for the UEs
-        nrHelper->SetUeAntennaAttribute ("NumRows", UintegerValue (2));
-        nrHelper->SetUeAntennaAttribute ("NumColumns", UintegerValue (4));
+        // nrHelper->SetUeAntennaAttribute ("NumRows", UintegerValue (2));
+        // nrHelper->SetUeAntennaAttribute ("NumColumns", UintegerValue (4));
         //nrHelper->SetUeAntennaAttribute ("IsotropicElements", BooleanValue (true));
 
         // Antennas for the gNbs
-        nrHelper->SetGnbAntennaAttribute ("NumRows", UintegerValue (4));
-        nrHelper->SetGnbAntennaAttribute ("NumColumns", UintegerValue (8));
+        // nrHelper->SetGnbAntennaAttribute ("NumRows", UintegerValue (4));
+        // nrHelper->SetGnbAntennaAttribute ("NumColumns", UintegerValue (8));
         //nrHelper->SetGnbAntennaAttribute ("IsotropicElements", BooleanValue (true));
 
         nrHelper->SetGnbPhyAttribute ("TxPower", DoubleValue (30));
@@ -382,8 +409,10 @@ main (int argc, char *argv[])
         lteHelper->SetEpcHelper (lteEpcHelper);
 
         // Set propagation model
-        lteHelper->SetAttribute ("PathlossModel", StringValue ("ns3::ThreeGppUmaPropagationLossModel"));
-        lteHelper->SetPathlossModelAttribute ("ShadowingEnabled", BooleanValue (true));
+        //lteHelper->SetAttribute ("PathlossModel", StringValue ("ns3::ThreeGppUmaPropagationLossModel"));
+        lteHelper->SetPathlossModelType (ns3::ThreeGppUmaPropagationLossModel::GetTypeId());
+        lteHelper->SetPathlossModelAttribute ("ChannelConditionModel", PointerValue (new ns3::ThreeGppUmaChannelConditionModel()));
+        lteHelper->SetPathlossModelAttribute ("ShadowingEnabled", BooleanValue (shadowing));
 
         pgw = lteEpcHelper->GetPgwNode ();
     }
@@ -449,8 +478,8 @@ main (int argc, char *argv[])
     Ptr<ListPositionAllocator> positionAlloc = CreateObject<ListPositionAllocator> ();
     std::vector<Vector> enbs;
     std::vector<Vector> trafficEnbs;
-    int x_offset = squareWidth/4;
-    int y_offset = 433;
+    int x_offset = multiplier*squareWidth/4;
+    int y_offset = multiplier*433;
     int center = squareWidth/2;
     enbs.push_back(Vector(squareWidth/2, squareWidth/2, enbHeight));
 
@@ -571,7 +600,7 @@ main (int argc, char *argv[])
         
         int i;
         for(i = 0; i < numberOfenbNodes; i++) {
-            Ptr<LteEnbNetDevice> dev = DynamicCast<LteEnbNetDevice> (enbNetDevs.Get(0));
+            Ptr<LteEnbNetDevice> dev = DynamicCast<LteEnbNetDevice> (enbNetDevs.Get(i));
             dev->GetRrc()->SetSrsPeriodicity(80);
         }
     }
@@ -604,17 +633,6 @@ main (int argc, char *argv[])
         lteHelper->AttachToClosestEnb (ueNetDevs, enbNetDevs);
         // side effect: the default EPS bearer will be activated
 
-    for (int i = 0; i < numberOfBands; i++)
-    {
-        // Install and start applications on UEs and remote host
-        UdpMixServerHelper udpMixServer(i + 50);
-        udpMixServer.SetAttribute("TransmissionPeriod", TimeValue(Seconds(interPacketInterval)));
-        udpMixServer.SetAttribute("Timeout", TimeValue(MilliSeconds(mixServerTimeout)));
-        ApplicationContainer serverApps = udpMixServer.Install (remoteHost);
-        serverApps.Start (Seconds (startTime));
-        serverApps.Stop (Seconds (endTime));
-    }
-
     if (five_g)
     { // *** 5G ***
         ulTft = Create<EpcTft> ();
@@ -643,7 +661,7 @@ main (int argc, char *argv[])
                 udpClient.SetAttribute ("Interval", TimeValue (Seconds (0.001)));
                 udpClient.SetAttribute ("PacketSize", UintegerValue (25));
                 ApplicationContainer clientApps = udpClient.Install(trafficUeNodes[j].Get(i));
-                clientApps.Start (Seconds ((rand() % 100 + startTime*100)/100.0));
+                clientApps.Start (Seconds ((rand() % 1000 + startTime*1000)/100.0));
                 clientApps.Stop (Seconds (endTime));
 
                 if(five_g)
@@ -674,12 +692,21 @@ main (int argc, char *argv[])
         Ptr<UdpIomustServer> server = udpServer.GetServer();
         server->SetMaxLatency(thrsLatency);
         server->SetDataVectors(arrivalTimeVect, latVect);
+        server->SetNPackets(nPackets);
         ueServers.Start(Seconds(startTime));
         ueServers.Stop(Seconds(endTime));
     }
 
     for(uint16_t u = 0; u < numberOfBands; u++)
     {
+        // Install and start applications on UEs and remote host
+        UdpMixServerHelper udpMixServer(u + 50);
+        udpMixServer.SetAttribute("TransmissionPeriod", TimeValue(Seconds(interPacketInterval)));
+        udpMixServer.SetAttribute("Timeout", TimeValue(MilliSeconds(mixServerTimeout)));
+        ApplicationContainer serverApps = udpMixServer.Install (remoteHost);
+        serverApps.Start (Seconds (startTime));
+        serverApps.Stop (Seconds (endTime));
+
         for(uint16_t i = 0; i < bands[u]; i++)
         {
             UdpIomustClientHelper udpClient(remoteHostAddr, 50 + u);
@@ -688,7 +715,8 @@ main (int argc, char *argv[])
             ApplicationContainer clientApps = udpClient.Install(bandNodes[u].Get(i));
             uint8_t *data = new uint8_t[5];
             udpClient.SetFill(clientApps.Get(0), data, 5, packetSize);
-            clientApps.Start (Seconds ((rand() % 100 + startTime*100)/100.0));
+            double sTime = (rand() % 1000 + startTime*1000)/1000.0;
+            clientApps.Start (Seconds (sTime));
             clientApps.Stop (Seconds (endTime));
 
             if(five_g)
@@ -725,19 +753,22 @@ main (int argc, char *argv[])
 
     Histogram e2eLatHist = Histogram(1);
     Histogram e2ePktHist = Histogram(1);
-    uint32_t timeStamp;
-    uint32_t val;
+    uint64_t timeStamp;
+    uint64_t val;
     int count = 0;
     int receivedPackets = 0;
     int latePackets = 0;
     int lostPackets = 0;
+    double x;
     for(int i = 0; i < numberOfueNodes; i ++) {
         for(int j = 0; j < nPackets; j++) {
-        timeStamp = e2eLatVect[i][0][j];
-        val = e2eLatVect[i][1][j];
-        if(val != 0)  {
+        timeStamp = (uint64_t) e2eLatVect[i][0][j];
+        val = (uint64_t) e2eLatVect[i][1][j];
+        if(val > 0)  {
+            x = (double) val;
+            if (val > 10000000) x = 10000000;
             receivedPackets++;
-            e2eLatHist.AddValue(val);
+            e2eLatHist.AddValue(x);
         }
         transferFile << i << " " << timeStamp << " " << val << std::endl;
         if(val == 0 || val > thrsLatency) {
