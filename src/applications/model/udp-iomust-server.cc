@@ -125,6 +125,12 @@ UdpIomustServer::SetDataVectors(uint64_t *v, uint64_t *k)
 }
 
 void
+UdpIomustServer::SetNPackets(int n)
+{
+  nPackets = n;
+}
+
+void
 UdpIomustServer::DoDispose (void)
 {
   NS_LOG_FUNCTION (this);
@@ -188,8 +194,8 @@ UdpIomustServer::HandleRead (Ptr<Socket> socket)
   while ((packet = socket->RecvFrom (from)))
     {
       socket->GetSockName (localAddress);
-      m_rxTrace (packet);
-      m_rxTraceWithAddresses (packet, from, localAddress);
+      // m_rxTrace (packet);
+      // m_rxTraceWithAddresses (packet, from, localAddress);
       if (packet->GetSize () > 0)
         {
           int pktSize = packet->GetSize();
@@ -199,38 +205,49 @@ UdpIomustServer::HandleRead (Ptr<Socket> socket)
           uint32_t seqN;
           memcpy(&sendTime, &data[5], sizeof(sendTime));
           memcpy(&seqN, &data[5 + sizeof(sendTime)], sizeof(seqN));
-          int64_t delay = Simulator::Now().GetMicroSeconds() - sendTime;
-          latency[seqN] = delay;
-          arrivalTime[seqN] = Simulator::Now().GetMicroSeconds();
-          //std::cout << seqN << ": " << arrivalTime[seqN] << " - " << sendTime << " = " << delay << std::endl;
-          SeqTsHeader seqTs;
-          packet->RemoveHeader (seqTs);
-          uint32_t currentSequenceNumber = seqTs.GetSeq ();
-          if (InetSocketAddress::IsMatchingType (from))
-            {
-              NS_LOG_INFO ("TraceDelay: RX " << packet->GetSize () <<
-                           " bytes from "<< InetSocketAddress::ConvertFrom (from).GetIpv4 () <<
-                           " Sequence Number: " << currentSequenceNumber <<
-                           " Uid: " << packet->GetUid () <<
-                           " TXtime: " << seqTs.GetTs () <<
-                           " RXtime: " << Simulator::Now () <<
-                           " Delay: " << Simulator::Now () - seqTs.GetTs ());
-            }
-          else if (Inet6SocketAddress::IsMatchingType (from))
-            {
-              NS_LOG_INFO ("TraceDelay: RX " << packet->GetSize () <<
-                           " bytes from "<< Inet6SocketAddress::ConvertFrom (from).GetIpv6 () <<
-                           " Sequence Number: " << currentSequenceNumber <<
-                           " Uid: " << packet->GetUid () <<
-                           " TXtime: " << seqTs.GetTs () <<
-                           " RXtime: " << Simulator::Now () <<
-                           " Delay: " << Simulator::Now () - seqTs.GetTs ());
-            }
+          if (static_cast<int>(seqN) >= nPackets)
+            return;
+          
+          if (sendTime != 0)
+          {
+            uint64_t delay = Simulator::Now().GetMicroSeconds() - sendTime;
+            latency[seqN] = delay;
+            arrivalTime[seqN] = Simulator::Now().GetMicroSeconds();
+            //std::cout << seqN << ": " << arrivalTime[seqN] << " - " << sendTime << " = " << delay << std::endl;
+          }
+          else
+          {
+            latency[seqN] = -1;
+            arrivalTime[seqN] = Simulator::Now().GetMicroSeconds();
+          }
+          // SeqTsHeader seqTs;
+          // packet->RemoveHeader (seqTs);
+          // uint32_t currentSequenceNumber = seqTs.GetSeq ();
+          // if (InetSocketAddress::IsMatchingType (from))
+          //   {
+          //     NS_LOG_INFO ("TraceDelay: RX " << packet->GetSize () <<
+          //                  " bytes from "<< InetSocketAddress::ConvertFrom (from).GetIpv4 () <<
+          //                  " Sequence Number: " << currentSequenceNumber <<
+          //                  " Uid: " << packet->GetUid () <<
+          //                  " TXtime: " << seqTs.GetTs () <<
+          //                  " RXtime: " << Simulator::Now () <<
+          //                  " Delay: " << Simulator::Now () - seqTs.GetTs ());
+          //   }
+          // else if (Inet6SocketAddress::IsMatchingType (from))
+          //   {
+          //     NS_LOG_INFO ("TraceDelay: RX " << packet->GetSize () <<
+          //                  " bytes from "<< Inet6SocketAddress::ConvertFrom (from).GetIpv6 () <<
+          //                  " Sequence Number: " << currentSequenceNumber <<
+          //                  " Uid: " << packet->GetUid () <<
+          //                  " TXtime: " << seqTs.GetTs () <<
+          //                  " RXtime: " << Simulator::Now () <<
+          //                  " Delay: " << Simulator::Now () - seqTs.GetTs ());
+          //   }
 
           
 
-          m_lossCounter.NotifyReceived (currentSequenceNumber);
-          m_received++;
+          // m_lossCounter.NotifyReceived (currentSequenceNumber);
+          // m_received++;
         }
     }
 }

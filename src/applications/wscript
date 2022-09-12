@@ -1,7 +1,7 @@
 ## -*- Mode: python; py-indent-offset: 4; indent-tabs-mode: nil; coding: utf-8; -*-
 
 def build(bld):
-    module = bld.create_ns3_module('applications', ['internet', 'config-store','stats'])
+    module = bld.create_ns3_module('applications', ['internet', 'stats'])
     module.source = [
         'model/bulk-send-application.cc',
         'model/onoff-application.cc',
@@ -18,6 +18,7 @@ def build(bld):
         'model/udp-forward-server.cc',
         'model/udp-iomust-client.cc',
         'model/udp-iomust-server.cc',
+        'model/udp-mix-server.cc',
         'model/application-packet-probe.cc',
         'model/three-gpp-http-client.cc',
         'model/three-gpp-http-server.cc',
@@ -63,6 +64,7 @@ def build(bld):
         'model/udp-forward-server.h',
         'model/udp-iomust-client.h',
         'model/udp-iomust-server.h',
+        'model/udp-mix-server.h',
         'model/application-packet-probe.h',
         'model/three-gpp-http-client.h',
         'model/three-gpp-http-server.h',

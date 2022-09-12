@@ -40,6 +40,8 @@ version.cache
 
 .vscode*
 5G-Scenario1.xml
+5G-Scenario2.xml
+4G-Scenario2.xml
 RxPacketTrace.txt
 RxedGnbMacCtrlMsgsTrace.txt
 RxedGnbPhyCtrlMsgsTrace.txt
@@ -64,4 +66,20 @@ ns3_multiple.sh
 outputProva1
 plot.sh
 transferFile.txt
-graphs/
+simulationLog.txt
+graphs*/
+4G-*
+5G-*
+.gitlab-ci-local/
+.idea/
+cmake-cache/
+cmake-build-debug/
+cmake-build-relwithdebinfo/
+cmake-build-minsizerel/
+cmake-build-release/
+.vscode/
+simLog.txt
+
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json

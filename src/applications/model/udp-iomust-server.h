@@ -89,6 +89,12 @@ public:
   void SetMaxLatency (uint16_t m);
 
   /**
+   * \brief Set the total number of packets
+   * \param n Number of packets to be received.
+   */
+  void SetNPackets (int n);
+
+  /**
    * \brief Set the histogram where each latency value will be stored.
    * \param h The reference to the latency histogram.
    */
@@ -118,6 +124,7 @@ private:
   uint64_t *latency; //!< Latency vector
   uint64_t *arrivalTime; //!< Arrival time vector
   uint16_t m_maxLatency; //!< Treshold beyond which packets must be considered lost
+  int nPackets; //!< Number of packets to be received
 
   /// Callbacks for tracing the packet Rx events
   TracedCallback<Ptr<const Packet> > m_rxTrace;
