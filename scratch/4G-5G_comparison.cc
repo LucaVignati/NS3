@@ -221,6 +221,9 @@ main (int argc, char *argv[])
     cmd.AddValue("trafficDistanceMultiplier",
                 "Distance between the traffic eNBs and the user eNBs",
                 multiplier);
+    cmd.AddValue("shadowing",
+                "Enable/Disable shadowing",
+                shadowing)
     cmd.Parse(argc, argv);
 
     srand(seed);
