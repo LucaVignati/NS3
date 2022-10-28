@@ -142,7 +142,7 @@ main (int argc, char *argv[])
     float multiplier = 2;
     int enbHeight = 25;
     int numerology = 2;
-    bool shadowing = true;
+    bool shadowing = false;
     bool enableUlPc = true;
     double frequency = 2035e6; // central frequency
     double bwpBandwidth = 20e6; //bandwidth of the UL and the DL
