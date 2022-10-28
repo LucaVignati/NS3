@@ -79,6 +79,7 @@ cmake-build-minsizerel/
 cmake-build-release/
 .vscode/
 simLog.txt
+old-graphs/
 
 .vscode/*
 !.vscode/launch.json

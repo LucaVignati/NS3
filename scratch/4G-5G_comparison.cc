@@ -245,9 +245,11 @@ main (int argc, char *argv[])
     numberOfBands = combination.size();
     uint16_t bands[numberOfBands];
 
-    std::string root = path + "/" + generation;
+    std::string root = path + "/simulations";
     std::string folder = root + "/" + ues + " UEs/";
     std::string fileNamePrefix;
+
+    std::cout << folder << std::endl;
 
     if (scenario == 1)
     {
@@ -271,7 +273,7 @@ main (int argc, char *argv[])
         * Default values for the simulation. We are progressively removing all
         * the instances of SetDefault, but we need it for legacy code (LTE)
         */
-        Config::SetDefault ("ns3::LteRlcUm::MaxTxBufferSize", UintegerValue(999999999));
+        //Config::SetDefault ("ns3::LteRlcUm::MaxTxBufferSize", UintegerValue(999999999)); // Either use it for both 4G and 5G or neither. Sandra suggests this could be the reason why we get such high latency in 5G.
 
         /*
         * Create NR simulation helpers
@@ -365,12 +367,13 @@ main (int argc, char *argv[])
         allBwps = CcBwpCreator::GetAllBwps ({band});
 
         // Configure ideal beamforming method
-        idealBeamformingHelper->SetAttribute ("BeamformingMethod", TypeIdValue (DirectPathBeamforming::GetTypeId ()));
+        idealBeamformingHelper->SetAttribute ("BeamformingMethod", TypeIdValue (DirectPathBeamforming::GetTypeId ())); //Not required if fast fading is not used --- IF OMITTED RESULTS IN SEGMENTATION FAULT DUE TO NULL POINTER
 
         nrEpcHelper->SetAttribute ("S1uLinkDelay", TimeValue (MilliSeconds (0)));
 
         // Configure scheduler
-        nrHelper->SetSchedulerTypeId (NrMacSchedulerTdmaPF::GetTypeId ());
+        nrHelper->SetSchedulerTypeId (NrMacSchedulerTdmaPF::GetTypeId ()); // Proportional Fairness scheduler
+        // nrHelper->SetSchedulerTypeId (NrMacSchedulerTdmaRR::GetTypeId ()); // Round Robin scheduler
 
         // Antennas for the UEs
         // nrHelper->SetUeAntennaAttribute ("NumRows", UintegerValue (2));
@@ -413,6 +416,7 @@ main (int argc, char *argv[])
         lteHelper->SetPathlossModelType (ns3::ThreeGppUmaPropagationLossModel::GetTypeId());
         lteHelper->SetPathlossModelAttribute ("ChannelConditionModel", PointerValue (new ns3::ThreeGppUmaChannelConditionModel()));
         lteHelper->SetPathlossModelAttribute ("ShadowingEnabled", BooleanValue (shadowing));
+        // lteHelper->SetSchedulerType ("ns3::RrFfMacScheduler"); // Round Robin scheduler
 
         pgw = lteEpcHelper->GetPgwNode ();
     }
@@ -715,7 +719,7 @@ main (int argc, char *argv[])
             ApplicationContainer clientApps = udpClient.Install(bandNodes[u].Get(i));
             uint8_t *data = new uint8_t[5];
             udpClient.SetFill(clientApps.Get(0), data, 5, packetSize);
-            double sTime = (rand() % 1000 + startTime*1000)/1000.0;
+            double sTime = (rand() % 500 + startTime*1000)/1000.0;
             clientApps.Start (Seconds (sTime));
             clientApps.Stop (Seconds (endTime));
 

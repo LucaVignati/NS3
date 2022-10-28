@@ -4,3 +4,6 @@
 [submodule "contrib/nr"]
 	path = contrib/nr
 	url = https://github.com/LucaVignati/nr.git
+[submodule "NS3Pipelines"]
+	path = NS3Pipelines
+	url = https://github.com/LucaVignati/NS3Pipelines.git
