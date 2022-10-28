@@ -223,7 +223,7 @@ main (int argc, char *argv[])
                 multiplier);
     cmd.AddValue("shadowing",
                 "Enable/Disable shadowing",
-                shadowing)
+                shadowing);
     cmd.Parse(argc, argv);
 
     srand(seed);
