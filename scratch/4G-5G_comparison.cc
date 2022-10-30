@@ -148,6 +148,7 @@ main (int argc, char *argv[])
     double bwpBandwidth = 20e6; //bandwidth of the UL and the DL
     double spacingBandwidth = 170e6; // bandwidth of the bandwidth part used to separate the UL from the DL
     enum BandwidthPartInfo::Scenario scenarioEnum = BandwidthPartInfo::UMa; //UMi_Buildings
+    std::string errorModel = "ns3::LenaErrorModel";
 
     std::string path = "graphs";
 
@@ -328,9 +329,10 @@ main (int argc, char *argv[])
         cc0->m_lowerFrequency = cc0->m_centralFrequency - cc0->m_channelBandwidth / 2;
         cc0->m_higherFrequency = cc0->m_centralFrequency + cc0->m_channelBandwidth / 2;
 
-        // BWP 0 - DL
+        // BWP 0 - UL
         bwp0->m_bwpId = bwpCount;
-        bwp0->m_centralFrequency = cc0->m_lowerFrequency + bwpBandwidth/2;
+        // bwp0->m_centralFrequency = cc0->m_lowerFrequency + bwpBandwidth/2;
+        bwp0->m_centralFrequency = cc0->m_higherFrequency - spacingBandwidth/2;
         bwp0->m_channelBandwidth = bwpBandwidth;
         bwp0->m_lowerFrequency = bwp0->m_centralFrequency - bwp0->m_channelBandwidth / 2;
         bwp0->m_higherFrequency = bwp0->m_centralFrequency + bwp0->m_channelBandwidth / 2;
@@ -348,9 +350,10 @@ main (int argc, char *argv[])
         cc0->AddBwp (std::move(bwp1));
         ++bwpCount;
 
-        // BWP 2 - UL
+        // BWP 2 - DL
         bwp2->m_bwpId = bwpCount;
-        bwp2->m_centralFrequency = cc0->m_higherFrequency - spacingBandwidth/2;
+        // bwp2->m_centralFrequency = cc0->m_higherFrequency - spacingBandwidth/2;
+        bwp2->m_centralFrequency = cc0->m_lowerFrequency + bwpBandwidth/2;
         bwp2->m_channelBandwidth = bwpBandwidth;
         bwp2->m_lowerFrequency = bwp2->m_centralFrequency - bwp2->m_channelBandwidth / 2;
         bwp2->m_higherFrequency = bwp2->m_centralFrequency + bwp2->m_channelBandwidth / 2;
@@ -362,6 +365,9 @@ main (int argc, char *argv[])
 
         nrHelper->SetPathlossAttribute ("ShadowingEnabled", BooleanValue (shadowing));
         nrHelper->SetUePhyAttribute ("EnableUplinkPowerControl", BooleanValue (enableUlPc));
+
+        nrHelper->SetUlErrorModel(errorModel);
+        nrHelper->SetDlErrorModel(errorModel);
 
         // Disable fast fading
         auto bandMask = NrHelper::INIT_PROPAGATION | NrHelper::INIT_CHANNEL;
