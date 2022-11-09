@@ -148,7 +148,7 @@ main (int argc, char *argv[])
     double bwpBandwidth = 20e6; //bandwidth of the UL and the DL
     double spacingBandwidth = 170e6; // bandwidth of the bandwidth part used to separate the UL from the DL
     enum BandwidthPartInfo::Scenario scenarioEnum = BandwidthPartInfo::UMa; //UMi_Buildings
-    std::string errorModel = "ns3::LenaErrorModel";
+    std::string errorModel = "ns3::NrEesmIrT1";
 
     std::string path = "graphs";
 
@@ -369,6 +369,9 @@ main (int argc, char *argv[])
         nrHelper->SetUlErrorModel(errorModel);
         nrHelper->SetDlErrorModel(errorModel);
 
+        nrHelper->SetGnbUlAmcAttribute ("AmcModel", EnumValue (NrAmc::ShannonModel));
+        nrHelper->SetGnbDlAmcAttribute ("AmcModel", EnumValue (NrAmc::ShannonModel));
+
         // Disable fast fading
         auto bandMask = NrHelper::INIT_PROPAGATION | NrHelper::INIT_CHANNEL;
         //Initialize channel and pathloss, plus other things inside band.
@@ -415,6 +418,8 @@ main (int argc, char *argv[])
         Config::SetDefault ("ns3::LteEnbNetDevice::UlBandwidth", UintegerValue (100)); // 20MHz UL Band
         Config::SetDefault ("ns3::LteEnbNetDevice::DlBandwidth", UintegerValue (100)); // 20MHz DL Band
         
+        Config::SetDefault ("ns3::LteAmc::AmcModel", EnumValue (LteAmc::PiroEW2010));
+
         lteHelper = CreateObject<LteHelper> ();
 
         lteEpcHelper = CreateObject<PointToPointEpcHelper> ();
