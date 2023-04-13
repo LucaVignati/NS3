@@ -470,6 +470,85 @@ LteHelper::SetSpectrumChannelAttribute (std::string n, const AttributeValue &v)
   m_channelFactory.Set (n, v);
 }
 
+void
+LteHelper::SetMacStatsUlOutputFilename(std::string filename)
+{
+  m_macStats->SetUlOutputFilename(filename);
+}
+
+void
+LteHelper::SetMacStatsDlOutputFilename(std::string filename)
+{
+  m_macStats->SetDlOutputFilename(filename);
+}
+
+
+void
+LteHelper::SetSinrDlOutputFilename(std::string filename)
+{
+  m_phyStats->SetCurrentCellRsrpSinrFilename(filename);
+}
+
+void
+LteHelper::SetSinrUlOutputFilename(std::string filename)
+{
+  m_phyStats->SetUeSinrFilename(filename);
+}
+
+void
+LteHelper::SetUlInterferenceOutputFilename(std::string filename)
+{
+  m_phyStats->SetInterferenceFilename(filename);
+}
+
+void
+LteHelper::SetRadioBearerStatsUlOutputFilename(std::string filename)
+{
+  m_pdcpStats->SetUlPdcpOutputFilename(filename);
+}
+
+void
+LteHelper::SetRadioBearerStatsDlOutputFilename(std::string filename)
+{
+  m_pdcpStats->SetDlPdcpOutputFilename(filename);
+}
+
+void
+LteHelper::SetLteStatsUlOutputFilename(std::string filename)
+{
+  m_rlcStats->SetUlOutputFilename(filename);
+}
+
+void
+LteHelper::SetLteStatsDlOutputFilename(std::string filename)
+{
+  m_rlcStats->SetDlOutputFilename(filename);
+}
+
+void
+LteHelper::SetPhyRxStatsUlOutputFilename(std::string filename)
+{
+  m_phyRxStats->SetUlRxOutputFilename(filename);
+}
+
+void
+LteHelper::SetPhyRxStatsDlOutputFilename(std::string filename)
+{
+  m_phyRxStats->SetDlRxOutputFilename(filename);
+}
+
+void
+LteHelper::SetPhyTxStatsUlOutputFilename(std::string filename)
+{
+  m_phyTxStats->SetUlTxOutputFilename(filename);
+}
+
+void
+LteHelper::SetPhyTxStatsDlOutputFilename(std::string filename)
+{
+  m_phyTxStats->SetDlTxOutputFilename(filename);
+}
+
 NetDeviceContainer
 LteHelper::InstallEnbDevice (NodeContainer c)
 {

@@ -20,6 +20,7 @@ build_lib(
     model/three-gpp-http-header.cc
     model/three-gpp-http-server.cc
     model/three-gpp-http-variables.cc
+    model/udp-broadcast-server.cc
     model/udp-client.cc
     model/udp-echo-client.cc
     model/udp-echo-server.cc
@@ -27,6 +28,7 @@ build_lib(
     model/udp-iomust-client.cc
     model/udp-iomust-server.cc
     model/udp-mix-server.cc
+    model/udp-mix-mec-server.cc
     model/udp-server.cc
     model/udp-trace-client.cc
   HEADER_FILES
@@ -49,6 +51,7 @@ build_lib(
     model/three-gpp-http-header.h
     model/three-gpp-http-server.h
     model/three-gpp-http-variables.h
+    model/udp-broadcast-server.h
     model/udp-client.h
     model/udp-echo-client.h
     model/udp-echo-server.h
@@ -56,6 +59,7 @@ build_lib(
     model/udp-iomust-client.h
     model/udp-iomust-server.h
     model/udp-mix-server.h
+    model/udp-mix-mec-server.h
     model/udp-server.h
     model/udp-trace-client.h
   LIBRARIES_TO_LINK ${libinternet}

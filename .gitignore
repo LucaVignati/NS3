@@ -80,7 +80,11 @@ cmake-build-release/
 .vscode/
 simLog.txt
 old-graphs/
+.neptune/
+tailscale_restart
+Immersed-NMP
 
 .vscode/*
 !.vscode/launch.json
 !.vscode/tasks.json
+!nr-2.1.y-vignati.patch

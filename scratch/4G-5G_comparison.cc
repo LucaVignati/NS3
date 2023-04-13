@@ -122,6 +122,7 @@ int
 main (int argc, char *argv[])
 {
     bool five_g;
+    bool fourGwith5GLena = false;
     bool traffic = false;
     std::string generation = "4G";
     uint16_t scenario = 1;
@@ -148,14 +149,16 @@ main (int argc, char *argv[])
     double bwpBandwidth = 20e6; //bandwidth of the UL and the DL
     double spacingBandwidth = 170e6; // bandwidth of the bandwidth part used to separate the UL from the DL
     enum BandwidthPartInfo::Scenario scenarioEnum = BandwidthPartInfo::UMa; //UMi_Buildings
-    std::string errorModel = "ns3::NrEesmIrT1";
+    std::string errorModel = "LenaErrorModel";
+
+    bool traces = false;
 
     std::string path = "graphs";
 
     std::vector<std::vector<int>> combinations;
     std::vector<int> combination;
 
-    int trafficUeNodesPerenb = 10;
+    int trafficUeNodesPerenb = 5;
     int numberOfTrafficEnbNodes = 0;
 
     Ptr<LteHelper> lteHelper;
@@ -225,24 +228,37 @@ main (int argc, char *argv[])
     cmd.AddValue("shadowing",
                 "Enable/Disable shadowing",
                 shadowing);
+    cmd.AddValue("traces",
+                "Enable/Disable traces",
+                traces);
+    cmd.AddValue("errorModel",
+                "Error model to be used",
+                errorModel);
+    cmd.AddValue("numberOfUeNodesPerTrafficEnb",
+                "Number of UE nodes per traffic eNB",
+                trafficUeNodesPerenb);
     cmd.Parse(argc, argv);
 
     srand(seed);
 
+    errorModel = "ns3::" + errorModel;
+
     int cell2cellDistance = 500*multiplier;
 
-    five_g = generation.compare("5G") == 0;
+    fourGwith5GLena = generation.compare("4Gwith5G") == 0;
+
+    five_g = generation.compare("5G") == 0 or fourGwith5GLena;
+
+    uint32_t n1Delay;
+    uint32_t n2Delay;
+    double rbOverhead;
+    uint32_t numRbPerRbg;
+    Time tbDecodeLatency;
+    uint32_t harqProcesses;
+    uint8_t dlCtrlSymbols;
 
     char ues[10];
     sprintf(ues, "%d", numberOfueNodes);
-
-    if (traffic)
-    {
-        if (scenario == 1)
-            numberOfTrafficEnbNodes = 6;
-        else if (scenario == 2)
-            numberOfTrafficEnbNodes = 9;
-    }
 
     calculate_combinations(&combinations, &combination, numberOfueNodes);
     combination = combinations.at(rand() % combinations.size());
@@ -253,22 +269,30 @@ main (int argc, char *argv[])
     std::string folder = root + "/" + ues + " UEs/";
     std::string fileNamePrefix;
 
-    std::cout << folder << std::endl;
-
     if (scenario == 1)
     {
         if (five_g) // *** 5G ***
             fileNamePrefix = "r" + std::to_string(radius) + "-num" + std::to_string(numerology) + "-s" + std::to_string(seed) + "-t" + std::to_string(static_cast<int>(simTime)) + "-" + comment;
-        else // *** 4G ***
+        if(fourGwith5GLena or not five_g) // *** 4G ***
             fileNamePrefix = "r" + std::to_string(radius) + "-s" + std::to_string(seed) + "-t" + std::to_string(static_cast<int>(simTime)) + "-" + comment;
     }
-    else if (scenario == 2)
+    else if (scenario == 2 or scenario == 3)
     {
         numberOfenbNodes = 3;
         if (five_g) // *** 5G ***
             fileNamePrefix = "gNB" + std::to_string(numberOfenbNodes) + "-r" + std::to_string(radius) + "-num" + std::to_string(numerology) + "-s" + std::to_string(seed) + "-t" + std::to_string(static_cast<int>(simTime)) + "-" + comment;
-        else // *** 4G ***
+        if (fourGwith5GLena or not five_g) // *** 4G ***
             fileNamePrefix = "eNB" + std::to_string(numberOfenbNodes) + "-r" + std::to_string(radius) + "-s" + std::to_string(seed) + "-t" + std::to_string(static_cast<int>(simTime)) + "-" + comment;
+    }
+
+    if (traffic)
+    {
+        if (scenario == 1)
+            numberOfTrafficEnbNodes = 6;
+        else if (scenario == 2)
+            numberOfTrafficEnbNodes = 9;
+        else if (scenario == 3)
+            numberOfTrafficEnbNodes = 6 * numberOfenbNodes;
     }
 
     if(five_g)
@@ -332,7 +356,7 @@ main (int argc, char *argv[])
         // BWP 0 - UL
         bwp0->m_bwpId = bwpCount;
         // bwp0->m_centralFrequency = cc0->m_lowerFrequency + bwpBandwidth/2;
-        bwp0->m_centralFrequency = cc0->m_higherFrequency - spacingBandwidth/2;
+        bwp0->m_centralFrequency = cc0->m_higherFrequency - bwpBandwidth/2;
         bwp0->m_channelBandwidth = bwpBandwidth;
         bwp0->m_lowerFrequency = bwp0->m_centralFrequency - bwp0->m_channelBandwidth / 2;
         bwp0->m_higherFrequency = bwp0->m_centralFrequency + bwp0->m_channelBandwidth / 2;
@@ -352,7 +376,7 @@ main (int argc, char *argv[])
 
         // BWP 2 - DL
         bwp2->m_bwpId = bwpCount;
-        // bwp2->m_centralFrequency = cc0->m_higherFrequency - spacingBandwidth/2;
+        // bwp2->m_centralFrequency = cc0->m_higherFrequency - bwpBandwidth/2;
         bwp2->m_centralFrequency = cc0->m_lowerFrequency + bwpBandwidth/2;
         bwp2->m_channelBandwidth = bwpBandwidth;
         bwp2->m_lowerFrequency = bwp2->m_centralFrequency - bwp2->m_channelBandwidth / 2;
@@ -366,11 +390,37 @@ main (int argc, char *argv[])
         nrHelper->SetPathlossAttribute ("ShadowingEnabled", BooleanValue (shadowing));
         nrHelper->SetUePhyAttribute ("EnableUplinkPowerControl", BooleanValue (enableUlPc));
 
+        if (fourGwith5GLena) {
+            numerology = 0;
+            n1Delay = 4;
+            n2Delay = 4;
+            rbOverhead = 0.1;
+            numRbPerRbg = 4;
+            tbDecodeLatency = MicroSeconds (1000);
+            harqProcesses = 8;
+            dlCtrlSymbols = 1;
+            errorModel = "ns3::LenaErrorModel";
+
+            nrHelper->SetGnbPhyAttribute("Numerology", UintegerValue (numerology));
+            nrHelper->SetGnbPhyAttribute("RbOverhead", DoubleValue(rbOverhead));
+            nrHelper->SetGnbPhyAttribute("N2Delay", UintegerValue(n2Delay));
+            nrHelper->SetGnbPhyAttribute("N1Delay", UintegerValue(n1Delay));
+            nrHelper->SetGnbPhyAttribute("TbDecodeLatency", TimeValue (tbDecodeLatency));
+            nrHelper->SetUePhyAttribute("TbDecodeLatency", TimeValue (tbDecodeLatency));
+            nrHelper->SetUeMacAttribute("NumHarqProcess", UintegerValue(harqProcesses));
+            nrHelper->SetGnbMacAttribute("NumHarqProcess", UintegerValue(harqProcesses));
+            nrHelper->SetGnbMacAttribute("NumRbPerRbg", UintegerValue(numRbPerRbg));
+            
+            nrHelper->SetSchedulerAttribute ("DlCtrlSymbols", UintegerValue (dlCtrlSymbols));
+            nrHelper->SetSchedulerAttribute ("EnableSrsInUlSlots", BooleanValue (false));
+            nrHelper->SetSchedulerAttribute ("EnableSrsInFSlots", BooleanValue (false));
+        }
+
         nrHelper->SetUlErrorModel(errorModel);
         nrHelper->SetDlErrorModel(errorModel);
 
-        nrHelper->SetGnbUlAmcAttribute ("AmcModel", EnumValue (NrAmc::ShannonModel));
-        nrHelper->SetGnbDlAmcAttribute ("AmcModel", EnumValue (NrAmc::ShannonModel));
+        // nrHelper->SetGnbUlAmcAttribute ("AmcModel", EnumValue (NrAmc::ShannonModel));
+        // nrHelper->SetGnbDlAmcAttribute ("AmcModel", EnumValue (NrAmc::ShannonModel));
 
         // Disable fast fading
         auto bandMask = NrHelper::INIT_PROPAGATION | NrHelper::INIT_CHANNEL;
@@ -384,7 +434,11 @@ main (int argc, char *argv[])
         nrEpcHelper->SetAttribute ("S1uLinkDelay", TimeValue (MilliSeconds (0)));
 
         // Configure scheduler
-        nrHelper->SetSchedulerTypeId (NrMacSchedulerTdmaPF::GetTypeId ()); // Proportional Fairness scheduler
+        if (fourGwith5GLena)
+            nrHelper->SetSchedulerTypeId (NrMacSchedulerOfdmaPF::GetTypeId ());
+        else
+            nrHelper->SetSchedulerTypeId (NrMacSchedulerTdmaPF::GetTypeId ()); // Proportional Fairness scheduler
+
         // nrHelper->SetSchedulerTypeId (NrMacSchedulerTdmaRR::GetTypeId ()); // Round Robin scheduler
 
         // Antennas for the UEs
@@ -418,12 +472,13 @@ main (int argc, char *argv[])
         Config::SetDefault ("ns3::LteEnbNetDevice::UlBandwidth", UintegerValue (100)); // 20MHz UL Band
         Config::SetDefault ("ns3::LteEnbNetDevice::DlBandwidth", UintegerValue (100)); // 20MHz DL Band
         
-        Config::SetDefault ("ns3::LteAmc::AmcModel", EnumValue (LteAmc::PiroEW2010));
+        // Config::SetDefault ("ns3::LteAmc::AmcModel", EnumValue (LteAmc::PiroEW2010));
 
         lteHelper = CreateObject<LteHelper> ();
 
         lteEpcHelper = CreateObject<PointToPointEpcHelper> ();
         lteHelper->SetEpcHelper (lteEpcHelper);
+
 
         // Set propagation model
         //lteHelper->SetAttribute ("PathlossModel", StringValue ("ns3::ThreeGppUmaPropagationLossModel"));
@@ -501,10 +556,17 @@ main (int argc, char *argv[])
     int center = squareWidth/2;
     enbs.push_back(Vector(squareWidth/2, squareWidth/2, enbHeight));
 
+    int interCellDistance = 10000;
+
     if (scenario == 2)
     {
         enbs.push_back(Vector(center + cell2cellDistance, center, enbHeight));
         enbs.push_back(Vector(center + x_offset, center + y_offset, enbHeight));
+    }
+    else if (scenario == 3)
+    {
+        enbs.push_back(Vector(center + interCellDistance, center, enbHeight));
+        enbs.push_back(Vector(center - interCellDistance, center, enbHeight));
     }
 
     std::string positionsFileName = folder + "/data/" + fileNamePrefix + "_positions.txt";
@@ -543,6 +605,29 @@ main (int argc, char *argv[])
             trafficEnbs.push_back(Vector(center + x_offset + cell2cellDistance, center + y_offset, enbHeight));
             trafficEnbs.push_back(Vector(center + cell2cellDistance, center + y_offset + cell2cellDistance, enbHeight));
             trafficEnbs.push_back(Vector(center, center + y_offset + cell2cellDistance, enbHeight));
+        }
+        else if (scenario == 3)
+        {
+            trafficEnbs.push_back(Vector(center + cell2cellDistance, center, enbHeight));
+            trafficEnbs.push_back(Vector(center + x_offset, center + y_offset, enbHeight));
+
+            int c_x = center + 10000;
+            int c_y = center;
+            trafficEnbs.push_back(Vector(c_x - cell2cellDistance, c_y, enbHeight));
+            trafficEnbs.push_back(Vector(c_x - x_offset, c_y + y_offset, enbHeight));
+            trafficEnbs.push_back(Vector(c_x - x_offset, c_y - y_offset, enbHeight));
+            trafficEnbs.push_back(Vector(c_x + x_offset, c_y - y_offset, enbHeight));
+            trafficEnbs.push_back(Vector(c_x + cell2cellDistance, c_y, enbHeight));
+            trafficEnbs.push_back(Vector(c_x + x_offset, c_y + y_offset, enbHeight));
+
+            c_x = center - 10000;
+            c_y = center;
+            trafficEnbs.push_back(Vector(c_x - cell2cellDistance, c_y, enbHeight));
+            trafficEnbs.push_back(Vector(c_x - x_offset, c_y + y_offset, enbHeight));
+            trafficEnbs.push_back(Vector(c_x - x_offset, c_y - y_offset, enbHeight));
+            trafficEnbs.push_back(Vector(c_x + x_offset, c_y - y_offset, enbHeight));
+            trafficEnbs.push_back(Vector(c_x + cell2cellDistance, c_y, enbHeight));
+            trafficEnbs.push_back(Vector(c_x + x_offset, c_y + y_offset, enbHeight));
         }
         positionAlloc = CreateObject<ListPositionAllocator> ();
         for (Vector trafficEnb : trafficEnbs)
@@ -757,6 +842,49 @@ main (int argc, char *argv[])
     FlowMonitorHelper flowHelper;
     flowMonitor = flowHelper.Install(ueNodes);
     flowHelper.Install(remoteHost);
+
+    if(traces)
+    {
+        std::string traceFilenamePrefix = folder + "data/trace-s" + std::to_string(seed) + "-";
+        if(five_g)
+        {
+            nrHelper->EnableDlMacSchedTraces ();
+            nrHelper->EnableUlMacSchedTraces ();
+            nrHelper->EnableRlcE2eTraces ();
+            nrHelper->EnablePdcpE2eTraces ();
+            nrHelper->EnableDlDataPhyTraces ();
+            nrHelper->EnableUlPhyTraces ();
+
+            Ptr<NrBearerStatsCalculator> rlcStatsCalculator = nrHelper->GetRlcStatsCalculator();
+            Ptr<NrBearerStatsCalculator> pdcpStatsCalculator = nrHelper->GetPdcpStatsCalculator();
+            rlcStatsCalculator->SetAttribute("DlRlcOutputFilename", StringValue(traceFilenamePrefix + "NrDlRlcStatsE2E.txt"));
+            rlcStatsCalculator->SetAttribute("UlRlcOutputFilename", StringValue(traceFilenamePrefix + "NrUlRlcStatsE2E.txt"));
+            pdcpStatsCalculator->SetAttribute("DlPdcpOutputFilename", StringValue(traceFilenamePrefix + "NrDlPdcpStatsE2E.txt"));
+            pdcpStatsCalculator->SetAttribute("UlPdcpOutputFilename", StringValue(traceFilenamePrefix + "NrUlPdcpStatsE2E.txt"));
+            nrHelper->SetSchedulingStatsUlOutputFilename(traceFilenamePrefix + "NrDlMacStats.txt");
+            nrHelper->SetSchedulingStatsDlOutputFilename(traceFilenamePrefix + "NrUlMacStats.txt");
+
+            Ptr<NrPhyRxTrace> nrPhyRxTrace = nrHelper->GetPhyRxTrace();
+            nrPhyRxTrace->SetSimTag("_" + fileNamePrefix);
+        }
+        else
+        {
+            lteHelper->EnableTraces();
+            lteHelper->SetMacStatsDlOutputFilename(traceFilenamePrefix + "DlMacStats.txt");
+            lteHelper->SetMacStatsUlOutputFilename(traceFilenamePrefix + "UlMacStats.txt");
+            lteHelper->SetSinrDlOutputFilename(traceFilenamePrefix + "DlRsrpSinrsStats.txt");
+            lteHelper->SetSinrUlOutputFilename(traceFilenamePrefix + "UlSinrsStats.txt");
+            lteHelper->SetUlInterferenceOutputFilename(traceFilenamePrefix + "UlInterferenceStats.txt");
+            lteHelper->SetRadioBearerStatsDlOutputFilename(traceFilenamePrefix + "DlPdcpStats.txt");
+            lteHelper->SetRadioBearerStatsUlOutputFilename(traceFilenamePrefix + "UlPdcpStats.txt");
+            lteHelper->SetLteStatsDlOutputFilename(traceFilenamePrefix + "DlRlcStats.txt");
+            lteHelper->SetLteStatsUlOutputFilename(traceFilenamePrefix + "UlRlcStats.txt");
+            lteHelper->SetPhyRxStatsDlOutputFilename(traceFilenamePrefix + "DlRxPhyStats.txt");
+            lteHelper->SetPhyRxStatsUlOutputFilename(traceFilenamePrefix + "UlRxPhyStats.txt");
+            lteHelper->SetPhyTxStatsDlOutputFilename(traceFilenamePrefix + "DlTxPhyStats.txt");
+            lteHelper->SetPhyTxStatsUlOutputFilename(traceFilenamePrefix + "UlTxPhyStats.txt");
+        }
+    }
 
     // AnimationInterface anim ("animation.xml");
     // anim.SetMaxPktsPerTraceFile(5000000);

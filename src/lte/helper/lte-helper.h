@@ -286,6 +286,32 @@ public:
    */
   void SetSpectrumChannelAttribute (std::string n, const AttributeValue &v);
 
+  void SetMacStatsUlOutputFilename(std::string filename);
+
+  void SetMacStatsDlOutputFilename(std::string filename);
+
+  void SetSinrDlOutputFilename(std::string filename);
+
+  void SetSinrUlOutputFilename(std::string filename);
+
+  void SetUlInterferenceOutputFilename(std::string filename);
+
+  void SetRadioBearerStatsUlOutputFilename(std::string filename);
+
+  void SetRadioBearerStatsDlOutputFilename(std::string filename);
+
+  void SetLteStatsUlOutputFilename(std::string filename);
+
+  void SetLteStatsDlOutputFilename(std::string filename);
+
+  void SetPhyRxStatsUlOutputFilename(std::string filename);
+
+  void SetPhyRxStatsDlOutputFilename(std::string filename);
+
+  void SetPhyTxStatsUlOutputFilename(std::string filename);
+
+  void SetPhyTxStatsDlOutputFilename(std::string filename);
+
   /**
    * Set the type of carrier component algorithm to be used by eNodeB devices.
    *

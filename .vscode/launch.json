@@ -58,19 +58,23 @@
             //"program": "${workspaceFolder}/build/utils/ns3-dev-test-runner-debug",
             "program": "${workspaceFolder}/build/scratch/ns3.36-4G-5G_comparison-default",
             "args": [
-                "--numberOfueNodes=2",
+                "--generation=5G",
+                "--numberOfueNodes=1",
                 "--radius=150",
                 "--height=1.5",
-                "--seed=0",
-                "--simTime=26",
-                "--nPackets=37533",
-                "--interPacketInterval=0.0006666666666666666",
-                "--traffic",
-                "--generation=5G",
-                "--numberOfenbNodes=1",
+                "--seed=484",
+                "--simTime=11.5",
+                "--nPackets=7533",
+                "--interPacketInterval=0.00133333333333333333333333333333",
+                "--audioPacketSize=136",
+                "--htPacketSize=24",
                 "--scenario=1",
                 "--numerology=2",
-                "--path=5G-scenario1-num2"
+                "--path=Immersed-NMP/5G-scenario1-num2-prova",
+                "--trafficDistanceMultiplier=2",
+                "--numberOfUeNodesPerTrafficEnb=5",
+                "--errorModel=NrEesmIrT1",
+                "--shadowing"
             ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
@@ -82,7 +86,58 @@
                 // pipeArgs is essentially the entire waf command line arguments                
                 "pipeArgs": [
                     "run",
-                    "4G-5G_comparison", // Run call with the filename
+                    "Immersed-NMP", // Run call with the filename
+                    "--command-template",
+                    "\"", // opening double quote for command template 
+                    "${debuggerCommand}", // gdb path and --interpreter arg already in debuggerCommand 
+                    "--args",
+                    "%s", // Need to add --args %s to the gdb call
+                    "\"", // closing quote for command template
+                ],
+                "quoteArgs": false,
+                "pipeCwd": ""
+            },
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+        {
+            "name": "(gdb) Pipe Launch Prova",
+            "type": "cppdbg",
+            "request": "launch",
+            //"program": "${workspaceFolder}/build/utils/ns3-dev-test-runner-debug",
+            "program": "${workspaceFolder}/build/scratch/ns3.36-Immersed-NMP-default",
+            "args": [
+                "--numberOfueNodes=4",
+                "--radius=150",
+                "--height=1.5",
+                "--seed=0",
+                "--simTime=26",
+                "--nPackets=37533",
+                "--interPacketInterval=0.00133333333333333333333333333333",
+                "--generation=5G",
+                "--scenario=2",
+                "--numerology=2",
+                "--path=Immersed-NMP/5G-scenario2-num2-prova",
+                "--errorModel=NrEesmIrT1",
+                "--shadowing"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "pipeTransport": {
+                "debuggerPath": "", // leave blank
+                "pipeProgram": "${workspaceFolder}/ns3",
+                // pipeArgs is essentially the entire waf command line arguments                
+                "pipeArgs": [
+                    "run",
+                    "Immersed-NMP", // Run call with the filename
                     "--command-template",
                     "\"", // opening double quote for command template 
                     "${debuggerCommand}", // gdb path and --interpreter arg already in debuggerCommand 

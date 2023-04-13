@@ -162,6 +162,7 @@ UdpEchoServer::HandleRead (Ptr<Socket> socket)
   Address localAddress;
   while ((packet = socket->RecvFrom (from)))
     {
+      // std::cout << "Received packet from " << InetSocketAddress::ConvertFrom (from).GetIpv4 () << std::endl;
       socket->GetSockName (localAddress);
       m_rxTrace (packet);
       m_rxTraceWithAddresses (packet, from, localAddress);

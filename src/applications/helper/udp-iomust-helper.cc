@@ -18,14 +18,64 @@
  * Author: Mathieu Lacage <mathieu.lacage@sophia.inria.fr>
  */
 #include "udp-iomust-helper.h"
-#include "ns3/udp-iomust-server.h"
-#include "ns3/udp-iomust-client.h"
-#include "ns3/udp-mix-server.h"
-#include "ns3/udp-forward-server.h"
+// #include "ns3/udp-iomust-server.h"
+// #include "ns3/udp-iomust-client.h"
+// #include "ns3/udp-mix-server.h"
+// #include "ns3/udp-mix-mec-server.h"
+// #include "ns3/udp-broadcast-server.h"
+// #include "ns3/udp-forward-server.h"
 #include "ns3/uinteger.h"
 #include "ns3/names.h"
 
 namespace ns3 {
+
+UdpBroadcastServerHelper::UdpBroadcastServerHelper (uint16_t port)
+{
+  m_factory.SetTypeId (UdpBroadcastServer::GetTypeId ());
+  SetAttribute ("Port", UintegerValue (port));
+}
+
+void 
+UdpBroadcastServerHelper::SetAttribute (
+  std::string name, 
+  const AttributeValue &value)
+{
+  m_factory.Set (name, value);
+}
+
+ApplicationContainer
+UdpBroadcastServerHelper::Install (Ptr<Node> node) const
+{
+  return ApplicationContainer (InstallPriv (node));
+}
+
+ApplicationContainer
+UdpBroadcastServerHelper::Install (std::string nodeName) const
+{
+  Ptr<Node> node = Names::Find<Node> (nodeName);
+  return ApplicationContainer (InstallPriv (node));
+}
+
+ApplicationContainer
+UdpBroadcastServerHelper::Install (NodeContainer c) const
+{
+  ApplicationContainer apps;
+  for (NodeContainer::Iterator i = c.Begin (); i != c.End (); ++i)
+    {
+      apps.Add (InstallPriv (*i));
+    }
+
+  return apps;
+}
+
+Ptr<Application>
+UdpBroadcastServerHelper::InstallPriv (Ptr<Node> node) const
+{
+  Ptr<Application> app = m_factory.Create<UdpBroadcastServer> ();
+  node->AddApplication (app);
+
+  return app;
+}
 
 UdpForwardServerHelper::UdpForwardServerHelper (uint16_t port)
 {
@@ -118,6 +168,54 @@ Ptr<Application>
 UdpMixServerHelper::InstallPriv (Ptr<Node> node) const
 {
   Ptr<Application> app = m_factory.Create<UdpMixServer> ();
+  node->AddApplication (app);
+
+  return app;
+}
+
+UdpMixMecServerHelper::UdpMixMecServerHelper (uint16_t port)
+{
+  m_factory.SetTypeId (UdpMixMecServer::GetTypeId ());
+  SetAttribute ("Port", UintegerValue (port));
+}
+
+void 
+UdpMixMecServerHelper::SetAttribute (
+  std::string name, 
+  const AttributeValue &value)
+{
+  m_factory.Set (name, value);
+}
+
+ApplicationContainer
+UdpMixMecServerHelper::Install (Ptr<Node> node) const
+{
+  return ApplicationContainer (InstallPriv (node));
+}
+
+ApplicationContainer
+UdpMixMecServerHelper::Install (std::string nodeName) const
+{
+  Ptr<Node> node = Names::Find<Node> (nodeName);
+  return ApplicationContainer (InstallPriv (node));
+}
+
+ApplicationContainer
+UdpMixMecServerHelper::Install (NodeContainer c) const
+{
+  ApplicationContainer apps;
+  for (NodeContainer::Iterator i = c.Begin (); i != c.End (); ++i)
+    {
+      apps.Add (InstallPriv (*i));
+    }
+
+  return apps;
+}
+
+Ptr<Application>
+UdpMixMecServerHelper::InstallPriv (Ptr<Node> node) const
+{
+  Ptr<Application> app = m_factory.Create<UdpMixMecServer> ();
   node->AddApplication (app);
 
   return app;

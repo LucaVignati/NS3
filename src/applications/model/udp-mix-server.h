@@ -77,6 +77,11 @@ class IoMusTPacket : public Object
     */
     virtual uint32_t get_pkt_size(void);
 
+    /**
+     * \brief Sets the size of the packet
+    */
+    virtual void set_pkt_size(uint32_t pkt_size);
+
   protected:
     virtual void DoDelete (void);
 
@@ -259,7 +264,6 @@ private:
   Ptr<Socket> socket; //!< Pointer to the socket used to send out packets.
   uint32_t oldestSeqN = 0; //!< The lowest normalized sequence number that packets must have to be accepted
   uint32_t newestSeqN = 0;//!< The higest normalized sequence number received thus far
-  int selectionPort = 49;
 
   /// Callbacks for tracing the packet Rx events
   TracedCallback<Ptr<const Packet> > m_rxTrace;
@@ -271,4 +275,3 @@ private:
 } // namespace ns3
 
 #endif /* UDP_Mix_SERVER_H */
-

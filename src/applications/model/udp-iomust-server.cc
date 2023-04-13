@@ -198,6 +198,7 @@ UdpIomustServer::HandleRead (Ptr<Socket> socket)
       // m_rxTraceWithAddresses (packet, from, localAddress);
       if (packet->GetSize () > 0)
         {
+          // std::cout << packet->GetSize() << std::endl;
           int pktSize = packet->GetSize();
           data = new uint8_t[pktSize];
           packet->CopyData(data, pktSize);
@@ -205,7 +206,8 @@ UdpIomustServer::HandleRead (Ptr<Socket> socket)
           uint32_t seqN;
           memcpy(&sendTime, &data[5], sizeof(sendTime));
           memcpy(&seqN, &data[5 + sizeof(sendTime)], sizeof(seqN));
-          if (static_cast<int>(seqN) >= nPackets)
+          // std::cout << sendTime << ": " << seqN << std::endl;
+          if (seqN >= static_cast<uint32_t>(nPackets))
             return;
           
           if (sendTime != 0)

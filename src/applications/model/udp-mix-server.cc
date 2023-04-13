@@ -36,6 +36,10 @@
 #include "udp-mix-server.h"
 #include "seq-ts-header.h"
 
+// #define DEBUG
+#define PORT 55
+
+
 namespace ns3 {
 
 IoMusTPacket::IoMusTPacket() {}
@@ -111,6 +115,16 @@ uint32_t
 IoMusTPacket::get_pkt_size(void)
 {
   return pktSize;
+}
+
+void
+IoMusTPacket::set_pkt_size(uint32_t pktSize)
+{
+  uint8_t *newData = new uint8_t[pktSize];
+  memcpy(newData, data, this->pktSize);
+  this->pktSize = pktSize;
+  delete [] data;
+  data = newData;
 }
 
 void
@@ -331,8 +345,10 @@ UdpMixServer::send_packets(uint32_t normSeqN)
   {
     stream->set_packet_sent(normSeqN);
   }
-  if (m_port == selectionPort)
-    std::cout << std::endl << Simulator::Now().As(Time::S) << "\tSent slot " << normSeqN << std::endl;
+#ifdef DEBUG 
+    if (m_port == PORT)
+      std::cout << std::endl << Simulator::Now().As(Time::S) << "\tSent slot " << normSeqN << std::endl;
+#endif
 }
 
 void
@@ -368,6 +384,8 @@ UdpMixServer::add_stream(Address clientAddress, Ptr<IoMusTPacket> packet)
   if (reference_time != MicroSeconds(0))
   {
     offset = round(static_cast<float>(reference_time.GetMicroSeconds() - streamStartTime.GetMicroSeconds()) / packetTransmissionPeriod.GetMicroSeconds());
+    if (oldestSeqN == 0)
+      oldestSeqN = newestSeqN;
   }
   else
   {
@@ -383,9 +401,11 @@ UdpMixServer::add_packet(Ptr<IoMusTPacket> packet, Ptr<Stream> stream)
 {
   uint32_t normSeqN = stream->add_packet(packet);
   if (normSeqN > newestSeqN) newestSeqN = normSeqN;
-  
-  if (m_port == selectionPort)
+
+#ifdef DEBUG
+  if (m_port == PORT)
     std::cout << "Norm Seq: " << normSeqN;
+#endif
 
   if (normSeqN > oldestSeqN)
   {
@@ -405,14 +425,18 @@ UdpMixServer::add_packet(Ptr<IoMusTPacket> packet, Ptr<Stream> stream)
       send_packets(normSeqN);
     }
     Simulator::Schedule(timeout, &ns3::UdpMixServer::check_and_send_packets, this, normSeqN); // Schedule anyway, it will check if packets have already been sent in the meantime
-    if (m_port == selectionPort)
+#ifdef DEBUG    
+    if (m_port == PORT)
       std::cout << std::endl;
+#endif
   }
   else
   {
     stream->set_packet_sent(normSeqN);
-    if (m_port == selectionPort)
+#ifdef DEBUG    
+    if (m_port == PORT)
       std::cout << "\tRejected" << std::endl;
+#endif
     // Pacchetto in ritardo o perso in uplink
   }
 }
@@ -450,8 +474,10 @@ UdpMixServer::HandleRead (Ptr<Socket> socket)
       Ipv4Address ip = InetSocketAddress::ConvertFrom(from).GetIpv4();
       Address senderAddress = InetSocketAddress(ip, 5);
 
-      if (m_port == selectionPort)
+#ifdef DEBUG
+      if (m_port == PORT)
         std::cout << Simulator::Now().As(Time::S) << "\tReceived from ";
+#endif
 
       Ptr<IoMusTPacket> packetWrapper = new IoMusTPacket(packet);
 
@@ -467,8 +493,10 @@ UdpMixServer::HandleRead (Ptr<Socket> socket)
         Address clientAddress = stream->get_address();
         if (clientAddress == senderAddress)
         {
-          if (m_port == selectionPort)
+#ifdef DEBUG          
+          if (m_port == PORT)
             std::cout << "[" << i << "]\t";
+#endif
           add_packet(packetWrapper, stream);
           newStream = false;
         }
@@ -480,7 +508,8 @@ UdpMixServer::HandleRead (Ptr<Socket> socket)
         add_packet(packetWrapper, stream);
       }
 
-      if (m_port == selectionPort)
+#ifdef DEBUG
+      if (m_port == PORT)
       {
         i = 0;
         std::cout << "Streams\t";
@@ -502,6 +531,7 @@ UdpMixServer::HandleRead (Ptr<Socket> socket)
           std::cout << -i << std::endl;
         }
       }
+#endif
 
       /*ip.Print(std::cout);
       std::cout << std::endl;*/
